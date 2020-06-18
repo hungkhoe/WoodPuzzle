@@ -12,7 +12,9 @@ namespace Puzzle.Game.Definition
         BELL,
         ROCKET_ONE,
         ROCKET_TWO,
-        ROCKET_THREE
+        ROCKET_THREE,
+        LAVA_STONE,
+        BOMB_MINE
     }
 
     public enum BlockColorID
@@ -24,6 +26,7 @@ namespace Puzzle.Game.Definition
         RED,
         VIOLET,
         YELLOW,
+        LAVA_STONE,
         NO_COLOR
     }
 }

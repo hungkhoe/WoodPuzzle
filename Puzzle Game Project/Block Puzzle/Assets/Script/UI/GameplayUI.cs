@@ -64,15 +64,35 @@ public class GameplayUI : MonoBehaviour
 
     public void PauseButton()
     {
+#if UNITY_EDITOR
         pausePanel.SetActive(!pausePanel.activeSelf);
-        if(pausePanel.activeSelf)
-        {         
+        if (pausePanel.activeSelf)
+        {
             Time.timeScale = 0;
+            GameManager.Instance.DisableColliderOnBlock();
         }
         else
         {
             Time.timeScale = 1;
+            GameManager.Instance.EnableColliderOnBlock();
         }
+#else
+       if (Input.touchCount == 1)
+        {
+            pausePanel.SetActive(!pausePanel.activeSelf);
+            if (pausePanel.activeSelf)
+            {
+                Time.timeScale = 0;
+                GameManager.Instance.DisableColliderOnBlock();
+            }
+            else
+            {
+                Time.timeScale = 1;
+                 GameManager.Instance.EnableColliderOnBlock();
+            }
+        }      
+#endif
+
     }
 
     public void SoundButton()
@@ -98,40 +118,71 @@ public class GameplayUI : MonoBehaviour
 
     public void RotateBlockButton()
     {
+#if UNITY_EDITOR
         GameManager.Instance.RotateBlockSkill();
-        if (GameManager.Instance.GetEnergy() >= 7)
+#else
+        if (Input.touchCount == 1)
         {
-            
-        }
-        
+            GameManager.Instance.RotateBlockSkill();
+            if (GameManager.Instance.GetEnergy() >= 7)
+            {
+
+            }
+        } 
+#endif
     }
 
     public void SameColorButton()
     {
+#if UNITY_EDITOR
         GameManager.Instance.SameColorSkill();
-        if (GameManager.Instance.GetEnergy() >= 12)
+#else
+
+       if (Input.touchCount == 1)
         {
-            
+            GameManager.Instance.SameColorSkill();
+            if (GameManager.Instance.GetEnergy() >= 12)
+            {
+
+            }
         }
+#endif
     }
 
     public void WoodenAxeButton()
     {
-        GameManager.Instance.WoodenAxeSkill();
-        if (GameManager.Instance.GetEnergy() >= 10)
-        {
-           
-        }
+#if UNITY_EDITOR
 
+        GameManager.Instance.WoodenAxeSkill();
+#else
+
+        if (Input.touchCount == 1)
+        {
+            GameManager.Instance.WoodenAxeSkill();
+            if (GameManager.Instance.GetEnergy() >= 10)
+            {
+
+            }
+        }
+#endif      
     }
 
     public void ReplaceBlockButton()
     {
-        GameManager.Instance.ReplaceBlockSkill();
-        if (GameManager.Instance.GetEnergy() >= 5)
+#if UNITY_EDITOR
+  
+        GameManager.Instance.ReplaceBlockSkill();       
+#else
+
+        if (Input.touchCount == 1)
         {
-            
-        }
+            GameManager.Instance.ReplaceBlockSkill();
+            if (GameManager.Instance.GetEnergy() >= 5)
+            {
+
+            }
+        }  
+#endif
     }
 
     public void UpdateEnergyBar()

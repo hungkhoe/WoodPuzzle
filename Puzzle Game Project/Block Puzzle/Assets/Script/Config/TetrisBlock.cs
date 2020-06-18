@@ -40,12 +40,11 @@ namespace Puzzle.Block.TertrisBlock
         {
             if (isBeingHeld)
             {
-
+#if UNITY_EDITOR
                 //Test
                 UnityEngine.Vector3 mousePos = Input.mousePosition;
                 mousePos = Camera.main.ScreenToWorldPoint(mousePos);
                 this.gameObject.transform.position = new UnityEngine.Vector3(mousePos.x - currentPositionX, mousePos.y - currentPositionY, this.gameObject.transform.position.z);
-
                 //lấy layer của Board
                 int layer = LayerMask.GetMask("Board");
                 // bắn raycast từ tiles đầu tiên -> board               
@@ -53,7 +52,7 @@ namespace Puzzle.Block.TertrisBlock
                 // chỉ khi nào đổi ô mới kiểm tra lại tetris      
 
                 if (hit.collider != null && hit.transform.gameObject.tag == "Tiles")
-                {                 
+                {
                     CheckPlaceTetris();
                 }
                 else if (hit.collider == null)
@@ -71,6 +70,41 @@ namespace Puzzle.Block.TertrisBlock
                         GameManager.GameManager.Instance.ResetBreakEffect();
                     }
                 }
+#else
+            if (Input.touchCount == 1)
+                {
+                    //Test
+                    UnityEngine.Vector3 mousePos = Input.mousePosition;
+                    mousePos = Camera.main.ScreenToWorldPoint(mousePos);
+                    this.gameObject.transform.position = new UnityEngine.Vector3(mousePos.x - currentPositionX, mousePos.y - currentPositionY, this.gameObject.transform.position.z);
+
+                    //lấy layer của Board
+                    int layer = LayerMask.GetMask("Board");
+                    // bắn raycast từ tiles đầu tiên -> board               
+                    RaycastHit2D hit = Physics2D.Raycast(this.transform.GetChild(0).transform.position, UnityEngine.Vector2.zero, 100, layer);
+                    // chỉ khi nào đổi ô mới kiểm tra lại tetris      
+
+                    if (hit.collider != null && hit.transform.gameObject.tag == "Tiles")
+                    {
+                        CheckPlaceTetris();
+                    }
+                    else if (hit.collider == null)
+                    {
+                        // Chạy ra ngoài bàn cờ
+                        if (isPlaced)
+                        {
+                            for (int i = 0; i < listTilesToPlace.Count; i++)
+                            {
+                                listTilesToPlace[i].transform.GetChild(0).gameObject.SetActive(false);
+                                listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                            }
+                            listTilesToPlace.Clear();
+                            isPlaced = false;
+                            GameManager.GameManager.Instance.ResetBreakEffect();
+                        }
+                    }
+                }
+#endif
             }
         }
 
@@ -87,13 +121,23 @@ namespace Puzzle.Block.TertrisBlock
 
                 // Di chuyển Tetris theo chuột + khoảng cách = 1/4 boxcolliderY
                 UnityEngine.Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition) - this.transform.position;
-                this.transform.Translate(0, mousePos.y + colliderY/2 , 0, Space.World);
+                this.transform.Translate(0, mousePos.y + colliderY , 0, Space.World);
 
                // UnityEngine.Vector3 mousePos;
                 mousePos = Input.mousePosition;
                 mousePos = Camera.main.ScreenToWorldPoint(mousePos);
                 currentPositionX = mousePos.x - this.transform.position.x;
                 currentPositionY = mousePos.y - this.transform.position.y;
+
+                // Turn off Skill
+                GameManager.GameManager.Instance.TurnOffAllSkill();
+
+                // Chuyen Layer cao len
+                for(int i = 0; i < transform.childCount; i++)
+                {
+                    transform.GetChild(i).GetComponent<SpriteRenderer>().sortingOrder = 3;
+                    transform.GetChild(i).GetComponent<SpriteRenderer>().sortingLayerName = "UI";
+                }
             }
         }
 
@@ -109,6 +153,13 @@ namespace Puzzle.Block.TertrisBlock
                     SetScale(0.45f);
                     SetScaleChildren(1);
                     MoveToSpawn();
+
+                    //Chuyen layer xuong
+                    for (int i = 0; i < transform.childCount; i++)
+                    {
+                        transform.GetChild(i).GetComponent<SpriteRenderer>().sortingOrder = 2;
+                        transform.GetChild(i).GetComponent<SpriteRenderer>().sortingLayerName = "Gameplay";
+                    }
                 }
                 else
                 {
@@ -134,7 +185,7 @@ namespace Puzzle.Block.TertrisBlock
                     // Update score
                     GameplayUI.Instance.UpdateScoreBoard();
                     // Spawn Rocket
-                    //GameManager.GameManager.Instance.RandomRocketItem();
+                    GameManager.GameManager.Instance.RandomRocketItem();
                     // Hủy object                 
                     Destroy(this.gameObject);
                 }
@@ -300,6 +351,26 @@ namespace Puzzle.Block.TertrisBlock
             for(int i = 0; i < transform.childCount;i++)
             {
                 transform.GetChild(i).GetComponent<BlockTetris>().RotateBlock();
+            }
+        }
+
+        private void OnApplicationPause(bool pause)
+        {
+            if(pause)
+            {
+                isBeingHeld = false;
+                transform.position = spawnPosVector;
+                for (int i = 0; i < listTilesToPlace.Count; i++)
+                {
+                    listTilesToPlace[i].transform.GetChild(0).gameObject.SetActive(false);
+                    listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                }
+                listTilesToPlace.Clear();
+                isPlaced = false;
+                GameManager.GameManager.Instance.ResetBreakEffect();
+                SetScale(0.45f);
+                SetScaleChildren(1);
+                GameplayUI.Instance.PauseButton();               
             }
         }
     }

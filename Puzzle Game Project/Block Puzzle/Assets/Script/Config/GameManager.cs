@@ -63,6 +63,7 @@ namespace Puzzle.Block.GameManager
         List<Tiles> tilesRowToDestroy;
         List<Tiles> tilesToDestroy;
         List<Tiles> previousTilesToDestroy;
+        List<Tiles> rocketDestroyList;
         List<GameObject> currentBlockList;
         bool isRowMatch;
         bool isColumnMatch;
@@ -79,6 +80,11 @@ namespace Puzzle.Block.GameManager
         bool isUsingWoodenSkill;
         bool isUsingSameColor;
         bool isReplaceBlockSkill;
+
+        [SerializeField]
+        GameObject tileMap;
+        [SerializeField]
+        GameObject blockSpawn;
         void Awake()
         {           
             instance = this;
@@ -88,6 +94,7 @@ namespace Puzzle.Block.GameManager
         {
             SetUpGame();
             SpawnNewRandomBlock();
+            ScaleGamePlay();
         }
 
         // Update is called once per frame
@@ -126,7 +133,25 @@ namespace Puzzle.Block.GameManager
                     // Instantie block sẵn trong bàn
                     GameObject tempPrefabTile = Instantiate(tilesBlockPrefab, tempTiles.transform);
                     tempPrefabTile.transform.position = new UnityEngine.Vector3(tempTiles.transform.position.x, tempTiles.transform.position.y);
-                    tempPrefabTile.SetActive(false);
+                    tempPrefabTile.SetActive(false);      
+
+                    //TODO : Code Test Lava Stone
+                    if(i == 5 && j == 5)
+                    {
+                        boardMatrix[i, j].SetUpLavaStone();
+                    }
+                    if (i == 1 && j == 1)
+                    {
+                        boardMatrix[i, j].SetUpLavaStone();
+                    }
+                    if (i == 8 && j == 7)
+                    {
+                        boardMatrix[i, j].SetUpLavaStone();
+                    }
+                    if (i == 1 && j == 8)
+                    {
+                        boardMatrix[i, j].SetUpLavaStone();
+                    }
                 }
             }
 
@@ -136,7 +161,7 @@ namespace Puzzle.Block.GameManager
             tilesToDestroy = new List<Tiles>();
             previousTilesToDestroy = new List<Tiles>();
             currentBlockList = new List<GameObject>();
-
+            rocketDestroyList = new List<Tiles>();
             // Set up score game
             scoreCount = 0;
             bellCount = 0;
@@ -217,23 +242,34 @@ namespace Puzzle.Block.GameManager
             if (tilesToDestroy.Count > 0)
             {
                 // TODO: Tạo effect nổ
+                rocketDestroyList.Clear();
                 for (int i = 0; i < tilesToDestroy.Count; i++)
                 {
-                    if(tilesToDestroy[i].GetTilesID() == TilesID.ROCKET_ONE || tilesToDestroy[i].GetTilesID() == TilesID.ROCKET_TWO ||
+                    if (tilesToDestroy[i].GetTilesID() == TilesID.ROCKET_ONE || tilesToDestroy[i].GetTilesID() == TilesID.ROCKET_TWO ||
                         tilesToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE)
-                    {
-                        //TODO no ca hang rocket
-                        Destroy(tilesToDestroy[i].transform.GetChild(1).gameObject);
+                    {                    
+                        RocketItemExplode(tilesToDestroy[i].GetTilesID(), tilesToDestroy[i]);
+                        tilesToDestroy[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                        tilesToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
                     }
-                    tilesToDestroy[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
-                    tilesToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
+                    else if (tilesToDestroy[i].GetTilesID() == TilesID.LAVA_STONE)
+                    {
+                        tilesToDestroy[i].DecreaseLavaStoneLife();
+                    }
+                    else
+                    {
+                        tilesToDestroy[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                        tilesToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
+                    }                                    
                 }
+                DestroyRocketListBlock();
                 IncreaseScoreByLine(totalLineDestroy);
                 GameplayUI.Instance.UpdateEnergyBar();
                 tilesToDestroy.Clear();
                 totalLineDestroy = 0;
                 int totalScore = blockCount + scoreToPlus;
                 GameObject tempScorePopUp = Instantiate(scorePopUp, blockPos, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                tempScorePopUp.transform.SetAsFirstSibling(); 
                 tempScorePopUp.GetComponentInChildren<PopUpScore>().SetScore(totalScore);
                 IncreaseScore(blockCount);
                 scoreToPlus = 0;
@@ -242,6 +278,7 @@ namespace Puzzle.Block.GameManager
             {
                 IncreaseScore(blockCount);
                 GameObject tempScorePopUp = Instantiate(scorePopUp, blockPos, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                tempScorePopUp.transform.SetAsFirstSibling();
                 tempScorePopUp.GetComponentInChildren<PopUpScore>().SetScore(blockCount);
             }
         }
@@ -279,8 +316,18 @@ namespace Puzzle.Block.GameManager
                         currentBlockList[i].GetComponent<TetrisBlock>().SetSpawnPos(i);
                         currentBlockList[i].GetComponent<TetrisBlock>().SetNewPosSpawn(blockSpawnLocation[i].transform.position);
                         currentBlockList[i].GetComponent<TetrisBlock>().MoveToSpawn();
-                    }                   
+                    }
+                    //Random loại block classsic
+                    int random = Random.Range(0, 16);
+                    GameObject tempBlock = Instantiate(blockPrefab[random], blockSpawnPanel.transform);
+                    // Chọn địa điểm spawn cho block
+                    tempBlock.transform.position = new UnityEngine.Vector3(startSpawnPos[2].transform.position.x, startSpawnPos[2].transform.position.y, 1);
+                    // Random màu cho block
+                    random = Random.Range(0, 7);
+                    tempBlock.GetComponent<TetrisBlock>().SetUpTetrisBlock(listBlockColor[random], 2, blockSpawnLocation[2].transform.position);
+                    currentBlockList.Add(tempBlock);
                 }
+                totalTetrisSpawn++;
             }
             CheckTetrisAvailable();
         }
@@ -395,7 +442,18 @@ namespace Puzzle.Block.GameManager
                 {
                     if (previousTilesToDestroy[i].GetTilesID() != Game.Definition.TilesID.EMPTY)
                     {
-                        previousTilesToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = listBlockColor[(int)previousTilesToDestroy[i].GetCurrentColor()];
+                        if(previousTilesToDestroy[i].GetTilesID() == TilesID.LAVA_STONE)
+                        {
+                            previousTilesToDestroy[i].ResetBreakEffectLava();
+                        }
+                        else if (previousTilesToDestroy[i].GetTilesID() == TilesID.BOMB_MINE)
+                        {
+                            previousTilesToDestroy[i].ResetBreakEffectBombMine();
+                        }
+                        else
+                        {
+                            previousTilesToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = listBlockColor[(int)previousTilesToDestroy[i].GetCurrentColor()];
+                        }                       
                     }
                 }
             }
@@ -550,12 +608,33 @@ namespace Puzzle.Block.GameManager
                 {                   
                     if(boardMatrix[i,j].GetTilesID() != TilesID.NORMAL_BLOCK && boardMatrix[i,j].GetTilesID() != TilesID.EMPTY)
                     {
+                        if(boardMatrix[i,j].GetTilesID() == TilesID.ROCKET_ONE || boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_TWO
+                            || boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_THREE)
                         Destroy(boardMatrix[i, j].transform.GetChild(1).gameObject);
                     }
                     boardMatrix[i, j].transform.GetChild(0).gameObject.SetActive(false);
                     boardMatrix[i, j].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                    // TODO CODE TEST LAVA
+                    if (i == 5 && j == 5)
+                    {
+                        boardMatrix[i, j].SetUpLavaStone();
+                    }
+                    if (i == 1 && j == 1)
+                    {
+                        boardMatrix[i, j].SetUpLavaStone();
+                    }
+                    if (i == 8 && j == 7)
+                    {
+                        boardMatrix[i, j].SetUpLavaStone();
+                    }
+                    if (i == 1 && j == 8)
+                    {
+                        boardMatrix[i, j].SetUpLavaStone();
+                    }
                 }
             }
+       
+
 
             StartCoroutine(ResetGame());
         }
@@ -599,7 +678,7 @@ namespace Puzzle.Block.GameManager
             Image blackImageComp = blackImage.GetComponent<Image>();
             while (blackImageComp.color.a < 1)
             {
-                blackImageComp.color = new Color(0, 0, 0, blackImageComp.color.a + 0.15f);
+                blackImageComp.color = new Color(0, 0, 0, blackImageComp.color.a + 0.2f);
                 yield return null;
             }
             UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
@@ -623,6 +702,7 @@ namespace Puzzle.Block.GameManager
             {
                 StartCoroutine(WoodenAxeSkillCour());
             }
+            isUsingSameColor = false;
         }
 
         IEnumerator WoodenAxeSkillCour()
@@ -630,102 +710,136 @@ namespace Puzzle.Block.GameManager
             List<Tiles> listToDestroy = new List<Tiles>();
             GameObject previousObject = this.gameObject;
             while (isUsingWoodenSkill)
-            {           
-                if (Input.GetMouseButtonDown(0))
+            {         
+                if(Time.timeScale == 1)
                 {
-                    UnityEngine.Vector3 mousePos = Input.mousePosition;
-                    mousePos = Camera.main.ScreenToWorldPoint(mousePos);
-                    //lấy layer của Board
-                    int layer = LayerMask.GetMask("Board");
-                    // bắn raycast từ tiles đầu tiên -> board               
-                    RaycastHit2D hit = Physics2D.Raycast(mousePos, UnityEngine.Vector2.zero, 100, layer);
-                    if (hit.collider != null && hit.transform.gameObject.tag == "Tiles")
+                    if (Input.GetMouseButtonDown(0))
                     {
-                        if(previousObject != hit.transform.gameObject)
+                        UnityEngine.Vector3 mousePos = Input.mousePosition;
+                        mousePos = Camera.main.ScreenToWorldPoint(mousePos);
+                        //lấy layer của Board
+                        int layer = LayerMask.GetMask("Board");
+                        // bắn raycast từ tiles đầu tiên -> board               
+                        RaycastHit2D hit = Physics2D.Raycast(mousePos, UnityEngine.Vector2.zero, 100, layer);
+                        if (hit.collider != null && hit.transform.gameObject.tag == "Tiles")
                         {
-                            if(listToDestroy.Count > 0 )
+                            if (previousObject != hit.transform.gameObject)
+                            {
+                                if (listToDestroy.Count > 0)
+                                {
+                                    for (int i = 0; i < listToDestroy.Count; i++)
+                                    {
+                                        if (listToDestroy[i].GetTilesID() == TilesID.NORMAL_BLOCK)
+                                        {
+                                            listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                        }
+                                        else if (listToDestroy[i].GetTilesID() == TilesID.ROCKET_ONE ||
+                                           listToDestroy[i].GetTilesID() == TilesID.ROCKET_TWO ||
+                                           listToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE)
+                                        {
+                                            listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                        }
+                                        else if(listToDestroy[i].GetTilesID() == TilesID.LAVA_STONE)
+                                        {
+                                            listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                        }
+                                        else if (listToDestroy[i].GetTilesID() == TilesID.BOMB_MINE)
+                                        {
+                                            listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                        }
+                                        else if (listToDestroy[i].GetTilesID() == TilesID.EMPTY)
+                                        {
+                                            listToDestroy[i].transform.GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                        }
+                                    }
+                                    listToDestroy.Clear();
+                                }
+                                previousObject = hit.transform.gameObject;
+                                int currentX = hit.transform.GetComponent<Tiles>().GetPositionX();
+                                int currentY = hit.transform.GetComponent<Tiles>().GetPositionY();
+                                listToDestroy.Add(boardMatrix[currentX, currentY]);
+                                if (currentY + 1 < 10)
+                                {
+                                    listToDestroy.Add(boardMatrix[currentX, currentY + 1]);
+                                }
+                                if (currentY - 1 >= 0)
+                                {
+                                    listToDestroy.Add(boardMatrix[currentX, currentY - 1]);
+                                }
+                                if (currentX - 1 >= 0)
+                                {
+                                    listToDestroy.Add(boardMatrix[currentX - 1, currentY]);
+                                    if (currentY + 1 < 10)
+                                    {
+                                        listToDestroy.Add(boardMatrix[currentX - 1, currentY + 1]);
+                                    }
+                                    if (currentY - 1 >= 0)
+                                    {
+                                        listToDestroy.Add(boardMatrix[currentX - 1, currentY - 1]);
+                                    }
+                                }
+                                if (currentX + 1 < 10)
+                                {
+                                    listToDestroy.Add(boardMatrix[currentX + 1, currentY]);
+                                    if (currentY + 1 < 10)
+                                    {
+                                        listToDestroy.Add(boardMatrix[currentX + 1, currentY + 1]);
+                                    }
+                                    if (currentY - 1 >= 0)
+                                    {
+                                        listToDestroy.Add(boardMatrix[currentX + 1, currentY - 1]);
+                                    }
+                                }
+                                for (int i = 0; i < listToDestroy.Count; i++)
+                                {
+                                    if (listToDestroy[i].GetTilesID() != TilesID.EMPTY)
+                                        listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 0, 0, 1);
+                                    else if (listToDestroy[i].GetTilesID() == TilesID.EMPTY)
+                                    {
+                                        listToDestroy[i].transform.GetComponent<SpriteRenderer>().color = new Color(1, 0, 0, 1);
+                                    }
+                                }
+                            }
+                            else if (previousObject == hit.transform.gameObject)
                             {
                                 for (int i = 0; i < listToDestroy.Count; i++)
                                 {
-                                    if (listToDestroy[i].GetTilesID() == TilesID.NORMAL_BLOCK)
+                                    if (listToDestroy[i].GetTilesID() != TilesID.EMPTY)
                                     {
-                                        listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                        if (listToDestroy[i].GetTilesID() == TilesID.ROCKET_ONE ||
+                                           listToDestroy[i].GetTilesID() == TilesID.ROCKET_TWO ||
+                                           listToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE)
+                                        {
+                                            Destroy(listToDestroy[i].transform.GetChild(1).gameObject);
+                                            listToDestroy[i].GetComponent<Tiles>().SetTitlesID(TilesID.EMPTY);
+                                            listToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
+                                        }
+                                        else if (listToDestroy[i].GetTilesID() == TilesID.LAVA_STONE)
+                                        {
+                                            listToDestroy[i].DecreaseLavaStoneLife();
+                                            listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                        }
+                                        else
+                                        {
+                                            listToDestroy[i].GetComponent<Tiles>().SetTitlesID(TilesID.EMPTY);
+                                            listToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
+                                        }                                                                   
                                     }
                                     else if (listToDestroy[i].GetTilesID() == TilesID.EMPTY)
                                     {
                                         listToDestroy[i].transform.GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
                                     }
                                 }
+                                energyCount -= 10;
+                                GameplayUI.Instance.UpdateEnergyBar();
+                                CheckTetrisAvailable();
                                 listToDestroy.Clear();
-                            }                     
-                            previousObject = hit.transform.gameObject;
-                            int currentX = hit.transform.GetComponent<Tiles>().GetPositionX();
-                            int currentY = hit.transform.GetComponent<Tiles>().GetPositionY();
-                            listToDestroy.Add(boardMatrix[currentX, currentY]);
-                            if (currentY + 1 < 10)
-                            {
-                                listToDestroy.Add(boardMatrix[currentX, currentY + 1]);
+                                isUsingWoodenSkill = false;
                             }
-                            if (currentY - 1 >= 0)
-                            {
-                                listToDestroy.Add(boardMatrix[currentX, currentY - 1]);
-                            }
-                            if (currentX - 1 >= 0)
-                            {
-                                listToDestroy.Add(boardMatrix[currentX - 1, currentY]);
-                                if (currentY + 1 < 10)
-                                {
-                                    listToDestroy.Add(boardMatrix[currentX - 1, currentY + 1]);
-                                }
-                                if (currentY - 1 >= 0)
-                                {
-                                    listToDestroy.Add(boardMatrix[currentX - 1, currentY - 1]);
-                                }
-                            }
-                            if (currentX + 1 < 10)
-                            {
-                                listToDestroy.Add(boardMatrix[currentX + 1, currentY]);
-                                if (currentY + 1 < 10)
-                                {
-                                    listToDestroy.Add(boardMatrix[currentX + 1, currentY + 1]);
-                                }
-                                if (currentY - 1 >= 0)
-                                {
-                                    listToDestroy.Add(boardMatrix[currentX + 1, currentY - 1]);
-                                }
-                            }
-                            for(int i = 0; i < listToDestroy.Count;i++)
-                            {
-                                if(listToDestroy[i].GetTilesID() == TilesID.NORMAL_BLOCK)
-                                listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 0, 0, 1);
-                                else if(listToDestroy[i].GetTilesID() == TilesID.EMPTY)
-                                {
-                                    listToDestroy[i].transform.GetComponent<SpriteRenderer>().color = new Color(1, 0, 0, 1);
-                                }
-                            }
-                        }      
-                        else if(previousObject == hit.transform.gameObject)
-                        {
-                            for(int i = 0; i < listToDestroy.Count; i++)
-                            {
-                                if(listToDestroy[i].GetTilesID() == TilesID.NORMAL_BLOCK)
-                                {
-                                    listToDestroy[i].GetComponent<Tiles>().SetTitlesID(TilesID.EMPTY);                             
-                                    listToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);                                    
-                                }                             
-                                else if (listToDestroy[i].GetTilesID() == TilesID.EMPTY)
-                                {
-                                    listToDestroy[i].transform.GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
-                                }
-                            }                            
-                            energyCount -= 10;
-                            GameplayUI.Instance.UpdateEnergyBar();
-                            CheckTetrisAvailable();
-                            listToDestroy.Clear();
-                            isUsingWoodenSkill = false;
                         }
                     }
                 }
+              
                 yield return null;
             }
 
@@ -735,6 +849,20 @@ namespace Puzzle.Block.GameManager
                 {
                     if (listToDestroy[i].GetTilesID() == TilesID.NORMAL_BLOCK)
                         listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                    else if (listToDestroy[i].GetTilesID() == TilesID.LAVA_STONE)
+                    {
+                        listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                    }
+                    else if (listToDestroy[i].GetTilesID() == TilesID.ROCKET_ONE ||
+                                          listToDestroy[i].GetTilesID() == TilesID.ROCKET_TWO ||
+                                          listToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE)
+                    {
+                        listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                    }
+                    else if (listToDestroy[i].GetTilesID() == TilesID.BOMB_MINE)
+                    {
+                        listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                    }
                     else if (listToDestroy[i].GetTilesID() == TilesID.EMPTY)
                     {
                         listToDestroy[i].transform.GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
@@ -749,7 +877,8 @@ namespace Puzzle.Block.GameManager
             if(isUsingSameColor)
             {
                 StartCoroutine(SameColorCour());
-            }            
+            }
+            isUsingWoodenSkill = false;
         }
 
         IEnumerator SameColorCour()
@@ -759,58 +888,69 @@ namespace Puzzle.Block.GameManager
             while(isUsingSameColor)
             {
                 // lấy vị trí chuột
-                if(Input.GetMouseButtonDown(0))
-                {                   
-                    UnityEngine.Vector3 mousePos = Input.mousePosition;
-                    mousePos = Camera.main.ScreenToWorldPoint(mousePos);
-                    //lấy layer của Board
-                    int layer = LayerMask.GetMask("Board");
-                    // bắn raycast từ tiles đầu tiên -> board               
-                    RaycastHit2D hit = Physics2D.Raycast(mousePos, UnityEngine.Vector2.zero, 100, layer);
-                    if (hit.collider != null && hit.transform.gameObject.tag == "Tiles" && hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.NORMAL_BLOCK)
-                    {                                     
-                        if (previousColorID != hit.transform.GetComponent<Tiles>().GetCurrentColor())
+                if(Time.timeScale == 1 )
+                {
+                    if (Input.GetMouseButtonDown(0))
+                    {
+                        UnityEngine.Vector3 mousePos = Input.mousePosition;
+                        mousePos = Camera.main.ScreenToWorldPoint(mousePos);
+                        //lấy layer của Board
+                        int layer = LayerMask.GetMask("Board");
+                        // bắn raycast từ tiles đầu tiên -> board               
+                        RaycastHit2D hit = Physics2D.Raycast(mousePos, UnityEngine.Vector2.zero, 100, layer);
+                        if (hit.collider != null && hit.transform.gameObject.tag == "Tiles" && (hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.NORMAL_BLOCK ||
+                            hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.ROCKET_ONE || hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.ROCKET_TWO
+                            || hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.ROCKET_THREE))
                         {
-                            if (listToDestroy.Count > 0)
+                            if (previousColorID != hit.transform.GetComponent<Tiles>().GetCurrentColor())
                             {
-                                for (int i = 0; i < listToDestroy.Count; i++)
+                                if (listToDestroy.Count > 0)
                                 {
-                                    listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
-                                }
-                                listToDestroy.Clear();
-                            }
-                            previousColorID = hit.transform.GetComponent<Tiles>().GetCurrentColor();
-                            for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
-                            {
-                                for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
-                                {
-                                    if (boardMatrix[i, j].GetTilesID() == TilesID.NORMAL_BLOCK && boardMatrix[i, j].GetCurrentColor() == previousColorID)
+                                    for (int i = 0; i < listToDestroy.Count; i++)
                                     {
-                                        // TODO: Đổi effect vỡ
-                                        boardMatrix[i, j].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 0, 0, 1);
-                                        listToDestroy.Add(boardMatrix[i, j]);
+                                        listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                    }
+                                    listToDestroy.Clear();
+                                }
+                                previousColorID = hit.transform.GetComponent<Tiles>().GetCurrentColor();
+                                for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
+                                {
+                                    for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
+                                    {
+                                        if (boardMatrix[i, j].GetTilesID() != TilesID.EMPTY && boardMatrix[i, j].GetCurrentColor() == previousColorID)
+                                        {
+                                            // TODO: Đổi effect vỡ
+                                            boardMatrix[i, j].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 0, 0, 1);
+                                            listToDestroy.Add(boardMatrix[i, j]);
+                                        }
                                     }
                                 }
                             }
-                        }
-                        else if (previousColorID == hit.transform.GetComponent<Tiles>().GetCurrentColor())
-                        {
-                            // TODO : effect destroy nổ puzzle
-                            for (int i = 0; i < listToDestroy.Count; i++)
+                            else if (previousColorID == hit.transform.GetComponent<Tiles>().GetCurrentColor())
                             {
-                                listToDestroy[i].GetComponent<Tiles>().SetTitlesID(TilesID.EMPTY);
-                                //listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
-                                listToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
+                                // TODO : effect destroy nổ puzzle
+                                for (int i = 0; i < listToDestroy.Count; i++)
+                                {
+                                    if (listToDestroy[i].GetTilesID() == TilesID.ROCKET_ONE ||
+                                          listToDestroy[i].GetTilesID() == TilesID.ROCKET_TWO ||
+                                          listToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE)
+                                    {
+                                        Destroy(listToDestroy[i].transform.GetChild(1).gameObject);
+                                    }
+                                    listToDestroy[i].GetComponent<Tiles>().SetTitlesID(TilesID.EMPTY);
+                                    //listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                    listToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
+                                }
+                                energyCount -= 12;
+                                GameplayUI.Instance.UpdateEnergyBar();
+                                CheckTetrisAvailable();
+                                listToDestroy.Clear();
+                                isUsingSameColor = false;
                             }
-                            energyCount -= 12;
-                            GameplayUI.Instance.UpdateEnergyBar();
-                            CheckTetrisAvailable();
-                            listToDestroy.Clear();
-                            isUsingSameColor = false;
                         }
                     }
-                   
-                }               
+                }
+              
                 yield return null;
             }
             if (listToDestroy.Count > 0)
@@ -830,7 +970,7 @@ namespace Puzzle.Block.GameManager
                 Destroy(currentBlockList[i].gameObject);
             }
             currentBlockList.Clear();
-            for(int i = 0; i < totalTetrisSpawn; i++)
+            for(int i = 0; i < 3; i++)
             {
                 GameObject tempBlock = Instantiate(blockPrefab[8], blockSpawnPanel.transform);
                 // Chọn địa điểm spawn cho block
@@ -840,6 +980,7 @@ namespace Puzzle.Block.GameManager
                 tempBlock.GetComponent<TetrisBlock>().SetUpTetrisBlock(listBlockColor[random], i, blockSpawnLocation[i].transform.position);
                 currentBlockList.Add(tempBlock);
             }
+            totalTetrisSpawn = 3;
             energyCount -= 5;
             GameplayUI.Instance.UpdateEnergyBar();
             isReplaceBlockSkill = false;
@@ -852,67 +993,203 @@ namespace Puzzle.Block.GameManager
 
         public void RandomRocketItem()
         {
-            bool isSpawnRocket = false;
-            for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
+            int random = Random.Range(0, 100);
+            if(random < 90)
             {
-                for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
+                bool isSpawnRocket = false;
+                for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
                 {
-                    if(boardMatrix[i,j].GetTilesID() == TilesID.NORMAL_BLOCK)
+                    for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
                     {
-                        int random = Random.Range(0, 100);
-                        if(random < 90)
+                        if (boardMatrix[i, j].GetTilesID() == TilesID.NORMAL_BLOCK)
                         {
-                            if(random < 40)
+                            random = Random.Range(0, 2);
+                            if (random == 0)
                             {
-                                Instantiate(rocket3Prefab, boardMatrix[i, j].transform.position, UnityEngine.Quaternion.identity, boardMatrix[i, j].transform);
-                                boardMatrix[i, j].SetTitlesID(TilesID.ROCKET_THREE);
-                            }
-                            else
-                            {
-                                random = Random.Range(0, 2);
-                                if(random == 0)
+                                random = Random.Range(0, 11);
+                                if (random < 3)
                                 {
-                                    Instantiate(rocket1Prefab, boardMatrix[i, j].transform.position, UnityEngine.Quaternion.identity, boardMatrix[i, j].transform);
-                                    boardMatrix[i, j].SetTitlesID(TilesID.ROCKET_ONE);
+                                    Instantiate(rocket3Prefab, boardMatrix[i, j].transform.position, UnityEngine.Quaternion.identity, boardMatrix[i, j].transform);
+                                    boardMatrix[i, j].SetTitlesID(TilesID.ROCKET_THREE);
                                 }
                                 else
                                 {
-                                    GameObject temp = Instantiate(rocket2Prefab,boardMatrix[i, j].transform);
-                                    temp.transform.position = boardMatrix[i, j].transform.position;
-                                    boardMatrix[i, j].SetTitlesID(TilesID.ROCKET_TWO);
+                                    random = Random.Range(0, 2);
+                                    if (random == 0)
+                                    {
+                                        Instantiate(rocket1Prefab, boardMatrix[i, j].transform.position, UnityEngine.Quaternion.identity, boardMatrix[i, j].transform);
+                                        boardMatrix[i, j].SetTitlesID(TilesID.ROCKET_ONE);
+                                    }
+                                    else
+                                    {
+                                        GameObject temp = Instantiate(rocket2Prefab, boardMatrix[i, j].transform);
+                                        temp.transform.position = boardMatrix[i, j].transform.position;
+                                        boardMatrix[i, j].SetTitlesID(TilesID.ROCKET_TWO);
+                                    }
+
                                 }
-                               
+
+                                isSpawnRocket = true;
+                                break;
                             }
-                           
-                            isSpawnRocket = true;
-                            break;
                         }
                     }
+                    if (isSpawnRocket)
+                        break;
                 }
-                if (isSpawnRocket)
-                    break;
-            }
+            }           
         }
 
-        void RocketItemExplode(TilesID _rocketID, Tiles _tile)
+        public void RocketItemExplode(TilesID _rocketID, Tiles _tile)
         {
             if(_rocketID == TilesID.ROCKET_ONE)
             {
-                for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
+                for (int i = 0; i < LEVEL_MODE_BOARD_HEIGHT; i++)
                 {
-                    if (boardMatrix[i, _tile.GetPositionY()].GetTilesID() != TilesID.EMPTY)
+                    if(!rocketDestroyList.Contains(boardMatrix[_tile.GetPositionX(), i]))
                     {
-
-                    }
-                }
+                        if (boardMatrix[_tile.GetPositionX(), i].GetTilesID() != TilesID.EMPTY)
+                        {
+                            rocketDestroyList.Add(boardMatrix[_tile.GetPositionX(), i]);
+                            if (boardMatrix[_tile.GetPositionX(), i].GetTilesID() == TilesID.ROCKET_ONE || 
+                                boardMatrix[_tile.GetPositionX(), i].GetTilesID() == TilesID.ROCKET_TWO ||
+                                boardMatrix[_tile.GetPositionX(), i].GetTilesID() == TilesID.ROCKET_THREE)
+                            {
+                                RocketItemExplode(boardMatrix[_tile.GetPositionX(), i].GetTilesID(), boardMatrix[_tile.GetPositionX(), i]);
+                            }
+                        }
+                    }                  
+                }               
             } 
             else if(_rocketID == TilesID.ROCKET_TWO)
             {
-
+                for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
+                {
+                    if (!rocketDestroyList.Contains(boardMatrix[i, _tile.GetPositionY()]))
+                    {
+                        if (boardMatrix[i, _tile.GetPositionY()].GetTilesID() != TilesID.EMPTY)
+                        {
+                            rocketDestroyList.Add(boardMatrix[i, _tile.GetPositionY()]);
+                            if (boardMatrix[i, _tile.GetPositionY()].GetTilesID() == TilesID.ROCKET_ONE || 
+                                boardMatrix[i, _tile.GetPositionY()].GetTilesID() == TilesID.ROCKET_TWO ||
+                                boardMatrix[i, _tile.GetPositionY()].GetTilesID() == TilesID.ROCKET_THREE)
+                            {
+                                RocketItemExplode(boardMatrix[i, _tile.GetPositionY()].GetTilesID(), boardMatrix[i, _tile.GetPositionY()]);
+                            }
+                        }
+                    }                      
+                }              
             }
             else if (_rocketID == TilesID.ROCKET_THREE)
             {
+                for (int i = 0; i < LEVEL_MODE_BOARD_HEIGHT; i++)
+                {
+                    if (!rocketDestroyList.Contains(boardMatrix[_tile.GetPositionX(), i]))
+                    {
+                        if (boardMatrix[_tile.GetPositionX(), i].GetTilesID() != TilesID.EMPTY)
+                        {
+                            rocketDestroyList.Add(boardMatrix[_tile.GetPositionX(), i]);
+                            if (boardMatrix[_tile.GetPositionX(), i].GetTilesID() != TilesID.EMPTY)
+                            {
+                                rocketDestroyList.Add(boardMatrix[_tile.GetPositionX(), i]);
+                                if (boardMatrix[_tile.GetPositionX(), i].GetTilesID() == TilesID.ROCKET_ONE ||
+                                    boardMatrix[_tile.GetPositionX(), i].GetTilesID() == TilesID.ROCKET_TWO ||
+                                    boardMatrix[_tile.GetPositionX(), i].GetTilesID() == TilesID.ROCKET_THREE)
+                                {
+                                    RocketItemExplode(boardMatrix[_tile.GetPositionX(), i].GetTilesID(), boardMatrix[_tile.GetPositionX(), i]);
+                                }
+                            }
+                        }
+                    }                               
+                }
 
+                for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
+                {
+                    if (!rocketDestroyList.Contains(boardMatrix[i, _tile.GetPositionY()]))
+                    {
+                        if (boardMatrix[i, _tile.GetPositionY()].GetTilesID() != TilesID.EMPTY)
+                        {
+                            rocketDestroyList.Add(boardMatrix[i, _tile.GetPositionY()]);
+                            if (boardMatrix[i, _tile.GetPositionY()].GetTilesID() == TilesID.ROCKET_ONE ||
+                                boardMatrix[i, _tile.GetPositionY()].GetTilesID() == TilesID.ROCKET_TWO ||
+                                boardMatrix[i, _tile.GetPositionY()].GetTilesID() == TilesID.ROCKET_THREE)
+                            {
+                                RocketItemExplode(boardMatrix[i, _tile.GetPositionY()].GetTilesID(), boardMatrix[i, _tile.GetPositionY()]);
+                            }
+                        }
+                    }
+                }               
+            }
+          //  DestroyListBlock();
+            if(_tile.transform.GetChild(1).gameObject != null)
+            Destroy(_tile.transform.GetChild(1).gameObject);            
+        }
+
+        void DestroyRocketListBlock()
+        {
+            for (int i = 0; i < rocketDestroyList.Count; i++)
+            {
+                if (rocketDestroyList[i].GetTilesID() == TilesID.ROCKET_ONE || rocketDestroyList[i].GetTilesID() == TilesID.ROCKET_TWO ||
+                    rocketDestroyList[i].GetTilesID() == TilesID.ROCKET_THREE)
+                {
+                    if (rocketDestroyList[i].transform.GetChild(1).gameObject != null)
+                        rocketDestroyList[i].transform.GetChild(1).gameObject.SetActive(false);
+                    rocketDestroyList[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                    rocketDestroyList[i].transform.GetChild(0).gameObject.SetActive(false);
+                }
+                else if (rocketDestroyList[i].GetTilesID() == TilesID.LAVA_STONE)
+                {
+                    rocketDestroyList[i].DecreaseLavaStoneLife();
+                }
+                else
+                {
+                    rocketDestroyList[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                    rocketDestroyList[i].transform.GetChild(0).gameObject.SetActive(false);
+                }               
+            }
+            rocketDestroyList.Clear(); 
+        }
+
+        void ScaleGamePlay()
+        {
+            float mainScreenHeight = 1920;
+            float mainScreenWidth = 1080;
+
+            float currentScreenHeight = Screen.height;
+            float currentScreenWidth = Screen.width;
+
+            float ratioMain = mainScreenWidth / mainScreenHeight;
+            float ratioCurrent = currentScreenWidth / currentScreenHeight;
+
+            if (ratioCurrent == 0.75)
+            {
+                Camera.main.orthographicSize = 6.5f;
+            }
+            else
+            {
+                float ratioTemp = ratioMain / ratioCurrent;
+                Camera.main.orthographicSize = Camera.main.orthographicSize * ratioTemp;
+            }           
+        }    
+
+        public void TurnOffAllSkill()
+        {
+            isUsingWoodenSkill = false;
+            isUsingSameColor = false;
+        }
+
+        public void DisableColliderOnBlock()
+        {
+            for(int i = 0; i < currentBlockList.Count; i++)
+            {
+                currentBlockList[i].GetComponent<BoxCollider2D>().enabled = false;
+            }
+        }
+        public void EnableColliderOnBlock()
+        {
+            for (int i = 0; i < currentBlockList.Count; i++)
+            {
+                currentBlockList[i].GetComponent<BoxCollider2D>().enabled = true;
             }
         }
     }
