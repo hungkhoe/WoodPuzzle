@@ -1,4 +1,5 @@
 ﻿using Puzzle.Block.GameManager;
+using Puzzle.Game.Definition;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -31,6 +32,7 @@ namespace Puzzle.Game.Tiles
         public void SetUpLavaStone()
         {
             tilesID = Definition.TilesID.LAVA_STONE;
+            currentColor = BlockColorID.LAVA_STONE;
             lavaStoneHp = 2;
             this.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = lavaStoneStatus[(int)LavaStoneStatus.FIRST_CRACK];
             transform.GetChild(0).gameObject.SetActive(true);
@@ -91,6 +93,7 @@ namespace Puzzle.Game.Tiles
             else if (lavaStoneHp == 1)
             {
                 this.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = lavaStoneStatus[(int)LavaStoneStatus.SECOND_CRACK];
+                currentColor = BlockColorID.LAVA_STONE_FIRST_CRACK;
             }
         }
 
@@ -124,6 +127,11 @@ namespace Puzzle.Game.Tiles
             {
                 print("lose game");
             }
+        }
+
+        public int GetHPLava()
+        {
+            return lavaStoneHp;
         }
 
     }

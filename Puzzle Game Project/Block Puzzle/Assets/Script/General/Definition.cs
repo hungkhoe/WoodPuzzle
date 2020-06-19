@@ -14,7 +14,8 @@ namespace Puzzle.Game.Definition
         ROCKET_TWO,
         ROCKET_THREE,
         LAVA_STONE,
-        BOMB_MINE
+        BOMB_MINE,
+        TIME
     }
 
     public enum BlockColorID
@@ -26,7 +27,12 @@ namespace Puzzle.Game.Definition
         RED,
         VIOLET,
         YELLOW,
+        HEART,
+        BELL,
         LAVA_STONE,
+        LAVA_STONE_FIRST_CRACK,
+        LAVA_STONE_SECOND_CRACK,
+        TIME,
         NO_COLOR
     }
 }

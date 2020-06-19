@@ -1,4 +1,5 @@
-﻿using Puzzle.Block.ScorePopUp;
+﻿using Puzzle.Block.GameUIManager;
+using Puzzle.Block.ScorePopUp;
 using Puzzle.Block.TertrisBlock;
 using Puzzle.Game.Definition;
 using Puzzle.Game.Tiles;
@@ -9,6 +10,7 @@ using System.Numerics;
 using System.Text.RegularExpressions;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.SocialPlatforms.Impl;
 using UnityEngine.UI;
 
@@ -39,6 +41,8 @@ namespace Puzzle.Block.GameManager
         [SerializeField]
         GameObject rocket3Prefab;
         [SerializeField]
+        GameObject timePrefab;
+        [SerializeField]
         GameObject[] blockPrefab;
         [SerializeField]
         GameObject boardPanel;
@@ -55,8 +59,7 @@ namespace Puzzle.Block.GameManager
         [SerializeField]
         GameObject[] blockSpawnLocation;
         [SerializeField]
-        Sprite[] listBlockColor;
-       
+        Sprite[] listBlockColor;       
 
         Tiles[,] boardMatrix;
         List<Tiles> tilesColumnToDestroy;
@@ -81,13 +84,27 @@ namespace Puzzle.Block.GameManager
         bool isUsingSameColor;
         bool isReplaceBlockSkill;
 
+        bool isTimeMode;
+
         [SerializeField]
         GameObject tileMap;
         [SerializeField]
         GameObject blockSpawn;
+
+        // Time Mode Variable
+        float currentTimePlay = 180.0f;
+        const int TOTAL_TIME_PLAY = 180;
         void Awake()
         {           
             instance = this;
+            if(PassInformation.Instance)
+            {
+                if (PassInformation.Instance.GetTimeMode())
+                {
+                    isTimeMode = true;
+                }
+                PassInformation.Instance.DestroyThisObject();
+            }       
         }
 
         void Start()
@@ -134,23 +151,26 @@ namespace Puzzle.Block.GameManager
                     GameObject tempPrefabTile = Instantiate(tilesBlockPrefab, tempTiles.transform);
                     tempPrefabTile.transform.position = new UnityEngine.Vector3(tempTiles.transform.position.x, tempTiles.transform.position.y);
                     tempPrefabTile.SetActive(false);      
-
                     //TODO : Code Test Lava Stone
                     if(i == 5 && j == 5)
                     {
                         boardMatrix[i, j].SetUpLavaStone();
+                        boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
                     }
                     if (i == 1 && j == 1)
                     {
                         boardMatrix[i, j].SetUpLavaStone();
+                        boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
                     }
                     if (i == 8 && j == 7)
                     {
                         boardMatrix[i, j].SetUpLavaStone();
+                        boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
                     }
                     if (i == 1 && j == 8)
                     {
                         boardMatrix[i, j].SetUpLavaStone();
+                        boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
                     }
                 }
             }
@@ -170,6 +190,11 @@ namespace Puzzle.Block.GameManager
 
             //Set time
             Time.timeScale = 1;
+
+            if(isTimeMode)
+            {
+                StartCoroutine(TimeModeCouroutine());
+            }
         }
 
         public void CheckBlockMatches(List<int> blockRowToCheck, List<int> blockColumnToCheck, int blockCount, UnityEngine.Vector3 blockPos)
@@ -242,6 +267,8 @@ namespace Puzzle.Block.GameManager
             if (tilesToDestroy.Count > 0)
             {
                 // TODO: Tạo effect nổ
+                int totalHeart = 0;
+                int totalBell = 0;
                 rocketDestroyList.Clear();
                 for (int i = 0; i < tilesToDestroy.Count; i++)
                 {
@@ -255,6 +282,36 @@ namespace Puzzle.Block.GameManager
                     else if (tilesToDestroy[i].GetTilesID() == TilesID.LAVA_STONE)
                     {
                         tilesToDestroy[i].DecreaseLavaStoneLife();
+                        if(tilesToDestroy[i].GetTilesID() == TilesID.EMPTY)
+                        {
+                            IncreaseScore(10);
+                            GameObject popUpTemp = Instantiate(scorePopUp, tilesToDestroy[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                            popUpTemp.transform.SetAsFirstSibling();
+                            popUpTemp.GetComponentInChildren<PopUpScore>().SetScore(10);
+                        }
+                    }
+                    else if(tilesToDestroy[i].GetTilesID() == TilesID.TIME)
+                    {
+                        GameObject tempPopUp = Instantiate(scorePopUp, tilesToDestroy[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                        tempPopUp.transform.SetAsFirstSibling();
+                        tempPopUp.GetComponentInChildren<Text>().text = "+30s";
+                      
+                        currentTimePlay += 30;
+                        Destroy(tilesToDestroy[i].transform.GetChild(1).gameObject);
+                        tilesToDestroy[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                        tilesToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
+                    }
+                    else if(tilesToDestroy[i].GetTilesID() == TilesID.BELL)
+                    {
+                        totalBell++;
+                        tilesToDestroy[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                        tilesToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
+                    }
+                    else if (tilesToDestroy[i].GetTilesID() == TilesID.HEART)
+                    {
+                        totalHeart++;
+                        tilesToDestroy[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                        tilesToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
                     }
                     else
                     {
@@ -265,14 +322,19 @@ namespace Puzzle.Block.GameManager
                 DestroyRocketListBlock();
                 IncreaseScoreByLine(totalLineDestroy);
                 GameplayUI.Instance.UpdateEnergyBar();
+                GameplayUI.Instance.UpdateScoreBoard();
                 tilesToDestroy.Clear();
                 totalLineDestroy = 0;
-                int totalScore = blockCount + scoreToPlus;
+                int totalScore = blockCount + scoreToPlus + (totalBell * 5) + (totalHeart * 5);
                 GameObject tempScorePopUp = Instantiate(scorePopUp, blockPos, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
-                tempScorePopUp.transform.SetAsFirstSibling(); 
+                tempScorePopUp.transform.SetAsFirstSibling();
                 tempScorePopUp.GetComponentInChildren<PopUpScore>().SetScore(totalScore);
+                IncreaseScore(totalHeart * 5);
+                IncreaseScore(totalBell * 5);
                 IncreaseScore(blockCount);
                 scoreToPlus = 0;
+                heartCount += totalHeart;
+                bellCount += totalBell;
             }
             else
             {
@@ -285,17 +347,32 @@ namespace Puzzle.Block.GameManager
 
         public void SpawnNewRandomBlock(int blockIndex = 5)
         {            
-            totalTetrisSpawn--;
+            totalTetrisSpawn--;          
+            // CODE BELL / HEART
+            int random = Random.Range(0, 100);         
             if (totalTetrisSpawn <= 0)
             {
                 if (blockIndex < 5)
                 {
                     currentBlockList.RemoveAt(0);
                 }
+                bool isSpamHeart = false;
+                bool isSpamBell = false;
+                if(!isTimeMode)
+                {
+                    if (random < 25)
+                    {
+                        isSpamBell = true;
+                    }
+                    else if (random < 50)
+                    {
+                        isSpamHeart = true;
+                    }
+                }               
                 for (int i = 0; i < 3; i++)
                 {
                     //Random loại block classsic
-                    int random = Random.Range(0, 16);
+                    random = Random.Range(0, 16);
                     GameObject tempBlock = Instantiate(blockPrefab[random], blockSpawnPanel.transform);
                     // Chọn địa điểm spawn cho block
                     tempBlock.transform.position = new UnityEngine.Vector3(startSpawnPos[i].transform.position.x, startSpawnPos[i].transform.position.y, 1);
@@ -304,6 +381,19 @@ namespace Puzzle.Block.GameManager
                     tempBlock.GetComponent<TetrisBlock>().SetUpTetrisBlock(listBlockColor[random], i, blockSpawnLocation[i].transform.position);
                     currentBlockList.Add(tempBlock);
                 }
+                if (isSpamBell || isSpamHeart)
+                {
+                    random = Random.Range(0, 3);
+                    int random2 = Random.Range(0, currentBlockList[random].transform.childCount);
+                    if (isSpamBell)
+                    {
+                        currentBlockList[random].transform.GetChild(random2).GetComponent<SpriteRenderer>().sprite = listBlockColor[8];
+                    }
+                    else
+                    {
+                        currentBlockList[random].transform.GetChild(random2).GetComponent<SpriteRenderer>().sprite = listBlockColor[7];
+                    }
+                }            
                 totalTetrisSpawn = 3;
             }
             else
@@ -318,7 +408,7 @@ namespace Puzzle.Block.GameManager
                         currentBlockList[i].GetComponent<TetrisBlock>().MoveToSpawn();
                     }
                     //Random loại block classsic
-                    int random = Random.Range(0, 16);
+                    random = Random.Range(0, 16);
                     GameObject tempBlock = Instantiate(blockPrefab[random], blockSpawnPanel.transform);
                     // Chọn địa điểm spawn cho block
                     tempBlock.transform.position = new UnityEngine.Vector3(startSpawnPos[2].transform.position.x, startSpawnPos[2].transform.position.y, 1);
@@ -326,6 +416,36 @@ namespace Puzzle.Block.GameManager
                     random = Random.Range(0, 7);
                     tempBlock.GetComponent<TetrisBlock>().SetUpTetrisBlock(listBlockColor[random], 2, blockSpawnLocation[2].transform.position);
                     currentBlockList.Add(tempBlock);
+
+                    random = Random.Range(0, 100);
+
+                    bool isSpamHeart = false;
+                    bool isSpamBell = false;
+                    
+                    if(!isTimeMode)
+                    {
+                        if (random < 15)
+                        {
+                            isSpamBell = true;
+                        }
+                        else if (random < 30)
+                        {
+                            isSpamHeart = true;
+                        }
+                    }
+
+                    if (isSpamBell || isSpamHeart)
+                    {
+                        random = Random.Range(0, tempBlock.transform.childCount);
+                        if (isSpamHeart)
+                        {
+                            tempBlock.transform.GetChild(random).GetComponent<SpriteRenderer>().sprite = listBlockColor[7];
+                        }
+                        else
+                        {
+                            tempBlock.transform.GetChild(random).GetComponent<SpriteRenderer>().sprite = listBlockColor[8];
+                        }
+                    }
                 }
                 totalTetrisSpawn++;
             }
@@ -428,6 +548,17 @@ namespace Puzzle.Block.GameManager
                     previousTilesToDestroy.Add(tilesToDestroy[i]);                    
                     //TODO: đổi sang effect vỡ
                     tilesToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = listBlockColor[7];
+                    if(tilesToDestroy[i].GetTilesID() == TilesID.LAVA_STONE)
+                    {
+                        if(tilesToDestroy[i].GetHPLava() == 2)
+                        {
+                            tilesToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = listBlockColor[(int)BlockColorID.LAVA_STONE_FIRST_CRACK];
+                        }
+                        else if (tilesToDestroy[i].GetHPLava() == 1)
+                        {
+                            tilesToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = listBlockColor[(int)BlockColorID.LAVA_STONE_SECOND_CRACK];
+                        }
+                    }
                 }
                 tilesToDestroy.Clear();
                 totalLineDestroy = 0;
@@ -511,7 +642,7 @@ namespace Puzzle.Block.GameManager
             totalTilesEmpty += _number;
         }
 
-        void CheckTetrisAvailable()
+        public void CheckTetrisAvailable()
         {
             int totalDisableBlock = 0;
             for (int i = 0; i < currentBlockList.Count; i++)
@@ -609,7 +740,7 @@ namespace Puzzle.Block.GameManager
                     if(boardMatrix[i,j].GetTilesID() != TilesID.NORMAL_BLOCK && boardMatrix[i,j].GetTilesID() != TilesID.EMPTY)
                     {
                         if(boardMatrix[i,j].GetTilesID() == TilesID.ROCKET_ONE || boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_TWO
-                            || boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_THREE)
+                            || boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_THREE || boardMatrix[i, j].GetTilesID() == TilesID.TIME)
                         Destroy(boardMatrix[i, j].transform.GetChild(1).gameObject);
                     }
                     boardMatrix[i, j].transform.GetChild(0).gameObject.SetActive(false);
@@ -729,13 +860,14 @@ namespace Puzzle.Block.GameManager
                                 {
                                     for (int i = 0; i < listToDestroy.Count; i++)
                                     {
-                                        if (listToDestroy[i].GetTilesID() == TilesID.NORMAL_BLOCK)
+                                        if (listToDestroy[i].GetTilesID() == TilesID.NORMAL_BLOCK || listToDestroy[i].GetTilesID() == TilesID.HEART
+                                            || listToDestroy[i].GetTilesID() == TilesID.BELL)
                                         {
                                             listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
                                         }
                                         else if (listToDestroy[i].GetTilesID() == TilesID.ROCKET_ONE ||
                                            listToDestroy[i].GetTilesID() == TilesID.ROCKET_TWO ||
-                                           listToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE)
+                                           listToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE || listToDestroy[i].GetTilesID() == TilesID.TIME)
                                         {
                                             listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
                                         }
@@ -744,6 +876,10 @@ namespace Puzzle.Block.GameManager
                                             listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
                                         }
                                         else if (listToDestroy[i].GetTilesID() == TilesID.BOMB_MINE)
+                                        {
+                                            listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                        }
+                                        else if (listToDestroy[i].GetTilesID() == TilesID.TIME)
                                         {
                                             listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
                                         }
@@ -818,6 +954,44 @@ namespace Puzzle.Block.GameManager
                                         {
                                             listToDestroy[i].DecreaseLavaStoneLife();
                                             listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                                            if (listToDestroy[i].GetTilesID() == TilesID.EMPTY)
+                                            {
+                                                GameObject tempScorePopUp = Instantiate(scorePopUp, listToDestroy[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                                                tempScorePopUp.transform.SetAsFirstSibling();
+                                                tempScorePopUp.GetComponentInChildren<PopUpScore>().SetScore(10);
+                                                IncreaseScore(10);
+                                                GameplayUI.Instance.UpdateScoreBoard();
+                                            }
+                                        }
+                                        else if (listToDestroy[i].GetTilesID() == TilesID.TIME)
+                                        {
+                                            GameObject tempPopUp = Instantiate(scorePopUp, listToDestroy[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                                            tempPopUp.transform.SetAsFirstSibling();
+                                            tempPopUp.GetComponentInChildren<Text>().text = "+30s";
+                                            currentTimePlay += 30;
+
+                                            Destroy(listToDestroy[i].transform.GetChild(1).gameObject);
+                                            listToDestroy[i].GetComponent<Tiles>().SetTitlesID(TilesID.EMPTY);
+                                            listToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
+                                        }
+                                        else if (listToDestroy[i].GetTilesID() == TilesID.BELL || listToDestroy[i].GetTilesID() == TilesID.HEART)
+                                        {
+                                            GameObject tempPopUp = Instantiate(scorePopUp, listToDestroy[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                                            tempPopUp.transform.SetAsFirstSibling();
+                                            tempPopUp.GetComponentInChildren<PopUpScore>().SetScore(5);
+                                            IncreaseScore(5);
+                                            if(listToDestroy[i].GetTilesID() == TilesID.BELL)
+                                            {
+                                                bellCount++;
+                                            }
+                                            else
+                                            {
+                                                heartCount++;
+                                            }
+                                            GameplayUI.Instance.UpdateScoreBoard();
+
+                                            listToDestroy[i].GetComponent<Tiles>().SetTitlesID(TilesID.EMPTY);
+                                            listToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
                                         }
                                         else
                                         {
@@ -856,6 +1030,15 @@ namespace Puzzle.Block.GameManager
                     else if (listToDestroy[i].GetTilesID() == TilesID.ROCKET_ONE ||
                                           listToDestroy[i].GetTilesID() == TilesID.ROCKET_TWO ||
                                           listToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE)
+                    {
+
+                        listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                    }
+                    else if (listToDestroy[i].GetTilesID() == TilesID.TIME)
+                    {
+                        listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                    }
+                    else if (listToDestroy[i].GetTilesID() == TilesID.HEART || listToDestroy[i].GetTilesID() == TilesID.BELL)
                     {
                         listToDestroy[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
                     }
@@ -900,7 +1083,7 @@ namespace Puzzle.Block.GameManager
                         RaycastHit2D hit = Physics2D.Raycast(mousePos, UnityEngine.Vector2.zero, 100, layer);
                         if (hit.collider != null && hit.transform.gameObject.tag == "Tiles" && (hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.NORMAL_BLOCK ||
                             hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.ROCKET_ONE || hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.ROCKET_TWO
-                            || hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.ROCKET_THREE))
+                            || hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.ROCKET_THREE || hit.transform.GetComponent<Tiles>().GetTilesID() == TilesID.TIME))
                         {
                             if (previousColorID != hit.transform.GetComponent<Tiles>().GetCurrentColor())
                             {
@@ -933,8 +1116,15 @@ namespace Puzzle.Block.GameManager
                                 {
                                     if (listToDestroy[i].GetTilesID() == TilesID.ROCKET_ONE ||
                                           listToDestroy[i].GetTilesID() == TilesID.ROCKET_TWO ||
-                                          listToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE)
+                                          listToDestroy[i].GetTilesID() == TilesID.ROCKET_THREE || listToDestroy[i].GetTilesID() == TilesID.TIME)
                                     {
+                                        if(listToDestroy[i].GetTilesID() == TilesID.TIME)
+                                        {
+                                            GameObject tempPopUp = Instantiate(scorePopUp, listToDestroy[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                                            tempPopUp.transform.SetAsFirstSibling();
+                                            tempPopUp.GetComponentInChildren<Text>().text = "+30s";
+                                            currentTimePlay += 30;
+                                        }
                                         Destroy(listToDestroy[i].transform.GetChild(1).gameObject);
                                     }
                                     listToDestroy[i].GetComponent<Tiles>().SetTitlesID(TilesID.EMPTY);
@@ -994,7 +1184,7 @@ namespace Puzzle.Block.GameManager
         public void RandomRocketItem()
         {
             int random = Random.Range(0, 100);
-            if(random < 90)
+            if(random < 50)
             {
                 bool isSpawnRocket = false;
                 for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
@@ -1040,6 +1230,34 @@ namespace Puzzle.Block.GameManager
             }           
         }
 
+        public void RandomTimeItem()
+        {
+            int random = Random.Range(0, 100);
+            if (random < 50)
+            {
+                bool isSpamTime = false;
+                for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
+                {
+                    for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
+                    {
+                        if (boardMatrix[i, j].GetTilesID() == TilesID.NORMAL_BLOCK)
+                        {
+                            random = Random.Range(0, 2);
+                            if (random == 0)
+                            {
+                                Instantiate(timePrefab, boardMatrix[i, j].transform.position, UnityEngine.Quaternion.identity, boardMatrix[i, j].transform);
+                                boardMatrix[i, j].SetTitlesID(TilesID.TIME);
+                                isSpamTime = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (isSpamTime)
+                        break;
+                }
+            }
+        }
+
         public void RocketItemExplode(TilesID _rocketID, Tiles _tile)
         {
             if(_rocketID == TilesID.ROCKET_ONE)
@@ -1075,7 +1293,7 @@ namespace Puzzle.Block.GameManager
                                 boardMatrix[i, _tile.GetPositionY()].GetTilesID() == TilesID.ROCKET_THREE)
                             {
                                 RocketItemExplode(boardMatrix[i, _tile.GetPositionY()].GetTilesID(), boardMatrix[i, _tile.GetPositionY()]);
-                            }
+                            }                          
                         }
                     }                      
                 }              
@@ -1133,13 +1351,50 @@ namespace Puzzle.Block.GameManager
                     rocketDestroyList[i].GetTilesID() == TilesID.ROCKET_THREE)
                 {
                     if (rocketDestroyList[i].transform.GetChild(1).gameObject != null)
-                        rocketDestroyList[i].transform.GetChild(1).gameObject.SetActive(false);
+                    rocketDestroyList[i].transform.GetChild(1).gameObject.SetActive(false);
+
                     rocketDestroyList[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
                     rocketDestroyList[i].transform.GetChild(0).gameObject.SetActive(false);
                 }
                 else if (rocketDestroyList[i].GetTilesID() == TilesID.LAVA_STONE)
                 {
-                    rocketDestroyList[i].DecreaseLavaStoneLife();
+                    rocketDestroyList[i].DecreaseLavaStoneLife();                 
+                    if (rocketDestroyList[i].GetTilesID() == TilesID.EMPTY)
+                    {
+                        IncreaseScore(10);
+                        GameObject tempScorePopUp = Instantiate(scorePopUp, rocketDestroyList[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                        tempScorePopUp.transform.SetAsFirstSibling();
+                        tempScorePopUp.GetComponentInChildren<PopUpScore>().SetScore(10);
+                        GameplayUI.Instance.UpdateScoreBoard();
+                    }
+                }
+                else if (rocketDestroyList[i].GetTilesID() == TilesID.TIME)
+                {
+                    Destroy(rocketDestroyList[i].transform.GetChild(1).gameObject);
+                    GameObject tempPopUp = Instantiate(scorePopUp, rocketDestroyList[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                    tempPopUp.transform.SetAsFirstSibling();
+                    tempPopUp.GetComponentInChildren<Text>().text = "+30s";
+                    currentTimePlay += 30;
+                    rocketDestroyList[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                    rocketDestroyList[i].transform.GetChild(0).gameObject.SetActive(false);
+                }
+                else if (rocketDestroyList[i].GetTilesID() == TilesID.HEART || rocketDestroyList[i].GetTilesID() == TilesID.BELL)
+                {                    
+                    GameObject tempPopUp = Instantiate(scorePopUp, rocketDestroyList[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                    tempPopUp.transform.SetAsFirstSibling();
+                    tempPopUp.GetComponentInChildren<Text>().text = "+5";
+                    if (rocketDestroyList[i].GetTilesID() == TilesID.HEART)
+                    {
+                        heartCount++;
+                    }
+                    else
+                    {
+                        bellCount++;
+                    }
+                    IncreaseScore(5);
+                    GameplayUI.Instance.UpdateScoreBoard();
+                    rocketDestroyList[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
+                    rocketDestroyList[i].transform.GetChild(0).gameObject.SetActive(false);
                 }
                 else
                 {
@@ -1190,6 +1445,24 @@ namespace Puzzle.Block.GameManager
             for (int i = 0; i < currentBlockList.Count; i++)
             {
                 currentBlockList[i].GetComponent<BoxCollider2D>().enabled = true;
+            }
+        }
+
+        public bool GetTimeModeBool()
+        {
+            return isTimeMode;
+        }
+        public float GetCurrentTimePlay()
+        {
+            return currentTimePlay;
+        }
+
+        IEnumerator TimeModeCouroutine()
+        {
+            while(currentTimePlay > 0 )
+            {
+                currentTimePlay--;
+                yield return new WaitForSeconds(1);
             }
         }
     }

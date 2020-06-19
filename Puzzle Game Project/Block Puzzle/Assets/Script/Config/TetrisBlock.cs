@@ -1,4 +1,5 @@
-﻿using Puzzle.Block.ScorePopUp;
+﻿using Puzzle.Block.GameUIManager;
+using Puzzle.Block.ScorePopUp;
 using Puzzle.Game.Definition;
 using Puzzle.Game.Tiles;
 using System.Collections;
@@ -171,6 +172,14 @@ namespace Puzzle.Block.TertrisBlock
                         // Đổi màu alpha về 1
                         listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
                         listTilesToPlace[i].transform.GetComponent<Tiles>().SetTitlesID(TilesID.NORMAL_BLOCK);
+                        if (listTilesToPlace[i].GetComponent<Tiles>().GetCurrentColor() == BlockColorID.HEART)
+                        {
+                            listTilesToPlace[i].transform.GetComponent<Tiles>().SetTitlesID(TilesID.HEART);
+                        }
+                        else if (listTilesToPlace[i].GetComponent<Tiles>().GetCurrentColor() == BlockColorID.BELL)
+                        {
+                            listTilesToPlace[i].transform.GetComponent<Tiles>().SetTitlesID(TilesID.BELL);
+                        }    
                         // Add các tọa độ Y cần check vào 1 list                     
                         if (!listColumnToCheck.Contains(listTilesToPlace[i].GetComponent<Tiles>().GetPositionY()))
                             listColumnToCheck.Add(listTilesToPlace[i].GetComponent<Tiles>().GetPositionY());
@@ -186,6 +195,11 @@ namespace Puzzle.Block.TertrisBlock
                     GameplayUI.Instance.UpdateScoreBoard();
                     // Spawn Rocket
                     GameManager.GameManager.Instance.RandomRocketItem();
+                    // Spawn Time Item
+                    if(GameManager.GameManager.Instance.GetTimeModeBool())
+                    {
+                        GameManager.GameManager.Instance.RandomTimeItem();
+                    }
                     // Hủy object                 
                     Destroy(this.gameObject);
                 }
@@ -283,7 +297,7 @@ namespace Puzzle.Block.TertrisBlock
                     // Enable cái block có sẵn trong bàn
                     listTilesToPlace[i].transform.GetChild(0).gameObject.SetActive(true);
                     listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 0.4f);
-                    listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = this.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+                    listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = this.transform.GetChild(i).GetComponent<SpriteRenderer>().sprite;
                     SetColor(listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.name, listTilesToPlace[i].GetComponent<Tiles>());
                 }
 
@@ -339,6 +353,14 @@ namespace Puzzle.Block.TertrisBlock
             {
                 tiles.SetCurrentColor(BlockColorID.YELLOW);
             }
+            else if(tilesToSetColor.Equals("heart_"))
+            {
+                tiles.SetCurrentColor(BlockColorID.HEART);
+            }
+            else if (tilesToSetColor.Equals("bell_"))
+            {
+                tiles.SetCurrentColor(BlockColorID.BELL);
+            }
         }
 
         public void SetNewPosSpawn(UnityEngine.Vector3 _pos)
@@ -358,19 +380,22 @@ namespace Puzzle.Block.TertrisBlock
         {
             if(pause)
             {
-                isBeingHeld = false;
-                transform.position = spawnPosVector;
-                for (int i = 0; i < listTilesToPlace.Count; i++)
+                if(isBeingHeld)
                 {
-                    listTilesToPlace[i].transform.GetChild(0).gameObject.SetActive(false);
-                    listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
-                }
-                listTilesToPlace.Clear();
-                isPlaced = false;
-                GameManager.GameManager.Instance.ResetBreakEffect();
-                SetScale(0.45f);
-                SetScaleChildren(1);
-                GameplayUI.Instance.PauseButton();               
+                    isBeingHeld = false;
+                    transform.position = spawnPosVector;
+                    for (int i = 0; i < listTilesToPlace.Count; i++)
+                    {
+                        listTilesToPlace[i].transform.GetChild(0).gameObject.SetActive(false);
+                        listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                    }
+                    listTilesToPlace.Clear();
+                    isPlaced = false;
+                    GameManager.GameManager.Instance.ResetBreakEffect();
+                    SetScale(0.45f);
+                    SetScaleChildren(1);
+                    GameplayUI.Instance.PauseButton();
+                }                        
             }
         }
     }

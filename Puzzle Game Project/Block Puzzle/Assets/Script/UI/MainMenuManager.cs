@@ -36,7 +36,8 @@ namespace Puzzle.Block.MainMenu
 
         public void TimeModeButton()
         {
-
+            SceneManager.LoadScene(levelModeSceneName);
+            PassInformation.Instance.SetTimeMode();
         }
 
         public void LeaderBoardButton()
