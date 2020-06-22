@@ -117,7 +117,15 @@ namespace Puzzle.Block.TertrisBlock
                 isBeingHeld = true;
                 colliderY = this.GetComponent<BoxCollider2D>().size.y;
                 // Khi nhấc mảnh ghép lên thì scale = 1
-                SetScale(1);
+                if(GameManager.GameManager.Instance.GetTimeModeBool())
+                {
+                    SetScale(1.25f);
+                }
+                else
+                {
+                    SetScale(1);
+                }
+                           
                 SetScaleChildren(0.85f);
 
                 // Di chuyển Tetris theo chuột + khoảng cách = 1/4 boxcolliderY
@@ -161,6 +169,15 @@ namespace Puzzle.Block.TertrisBlock
                         transform.GetChild(i).GetComponent<SpriteRenderer>().sortingOrder = 2;
                         transform.GetChild(i).GetComponent<SpriteRenderer>().sortingLayerName = "Gameplay";
                     }
+
+                    for (int i = 0; i < listTilesToPlace.Count; i++)
+                    {
+                        listTilesToPlace[i].transform.GetChild(0).gameObject.SetActive(false);
+                        listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                    }
+                    listTilesToPlace.Clear();
+                    isPlaced = false;
+                    GameManager.GameManager.Instance.ResetBreakEffect();
                 }
                 else
                 {
@@ -240,7 +257,12 @@ namespace Puzzle.Block.TertrisBlock
             {
                 transform.position = UnityEngine.Vector3.MoveTowards(transform.position, spawnPosVector, Time.deltaTime * movingSpeed);
                 yield return null;
-            }
+            }            
+            yield return new WaitForSeconds(0.2f);
+            if(spawnPosNumber == 2) 
+            {
+                GameManager.GameManager.Instance.CheckIfLose();
+            }            
         }
 
         public void MoveToSpawn()
@@ -373,6 +395,24 @@ namespace Puzzle.Block.TertrisBlock
             for(int i = 0; i < transform.childCount;i++)
             {
                 transform.GetChild(i).GetComponent<BlockTetris>().RotateBlock();
+            }
+        }
+
+        public void TestFunction()
+        {
+            if (isBeingHeld)
+            {
+                isBeingHeld = false;
+                transform.position = spawnPosVector;
+                for (int i = 0; i < listTilesToPlace.Count; i++)
+                {
+                    listTilesToPlace[i].transform.GetChild(0).gameObject.SetActive(false);
+                    listTilesToPlace[i].transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                }
+                listTilesToPlace.Clear();
+                isPlaced = false;               
+                SetScale(0.45f);
+                SetScaleChildren(1);              
             }
         }
 

@@ -26,12 +26,14 @@ namespace Puzzle.Block.GameManager
             }
         }
         // Start is called before the first frame update
-        private const int LEVEL_MODE_BOARD_WIDTH = 10;
-        private const int LEVEL_MODE_BOARD_HEIGHT = 10;
+        private int LEVEL_MODE_BOARD_WIDTH;
+        private int LEVEL_MODE_BOARD_HEIGHT;     
         private const int TOTAL_CLASSIC_BLOCK_NUMBER = 16;
 
         [SerializeField]
         GameObject tilesPrefab;
+        [SerializeField]
+        GameObject tilesPrefabTimeMode;
         [SerializeField]
         GameObject tilesBlockPrefab;
         [SerializeField]
@@ -53,13 +55,23 @@ namespace Puzzle.Block.GameManager
         [SerializeField]
         GameObject scorePopUp;
         [SerializeField]
+        GameObject popUpReviveNoMove;
+        [SerializeField]
+        GameObject popUpReviveNoMoveTime;
+        [SerializeField]
+        GameObject countDownItemPopUp;
+        [SerializeField]
         GameObject blockSpawnPanel;
         [SerializeField]
         GameObject[] startSpawnPos;
         [SerializeField]
         GameObject[] blockSpawnLocation;
         [SerializeField]
-        Sprite[] listBlockColor;       
+        Sprite[] listBlockColor;
+        [SerializeField]
+        Sprite timeSkillSprite;
+        [SerializeField]
+        GameObject replaceButton;
 
         Tiles[,] boardMatrix;
         List<Tiles> tilesColumnToDestroy;
@@ -85,6 +97,7 @@ namespace Puzzle.Block.GameManager
         bool isReplaceBlockSkill;
 
         bool isTimeMode;
+        bool isGameOver;
 
         [SerializeField]
         GameObject tileMap;
@@ -92,7 +105,7 @@ namespace Puzzle.Block.GameManager
         GameObject blockSpawn;
 
         // Time Mode Variable
-        float currentTimePlay = 180.0f;
+        float currentTimePlay = 5;
         const int TOTAL_TIME_PLAY = 180;
         void Awake()
         {           
@@ -126,54 +139,93 @@ namespace Puzzle.Block.GameManager
 
         void SetUpGame()
         {
-            // Tạo các cột title cho map từ tọa độ 0,0 -> 10,10
-            totalTilesEmpty = LEVEL_MODE_BOARD_HEIGHT * LEVEL_MODE_BOARD_WIDTH;
-            boardMatrix = new Tiles[LEVEL_MODE_BOARD_WIDTH, LEVEL_MODE_BOARD_HEIGHT];
-            // Tìm độ cao và độ rộng để dịch sau mỗi block
-            float paddingWidth = tilesPrefab.GetComponent<SpriteRenderer>().size.x;
-            float paddingHeight = tilesPrefab.GetComponent<SpriteRenderer>().size.y;
-            // Generate map 
-            for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
+            if(isTimeMode)
             {
-                for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
+                LEVEL_MODE_BOARD_HEIGHT = 8;
+                LEVEL_MODE_BOARD_WIDTH = 8;
+                // Tạo các cột title cho map từ tọa độ 0,0 -> 10,10
+                totalTilesEmpty = LEVEL_MODE_BOARD_HEIGHT * LEVEL_MODE_BOARD_WIDTH;
+                boardMatrix = new Tiles[LEVEL_MODE_BOARD_WIDTH, LEVEL_MODE_BOARD_HEIGHT];
+                // Tìm độ cao và độ rộng để dịch sau mỗi block
+                float paddingWidth = tilesPrefab.GetComponent<SpriteRenderer>().size.x;
+                float paddingHeight = tilesPrefab.GetComponent<SpriteRenderer>().size.y;
+                // Generate map 
+                for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
                 {
-                    GameObject tempTiles;
-                    tempTiles = Instantiate(tilesPrefab, boardPanel.transform);
-                    // Tính pixel scale vì đổi từ 100 -> 240 trong inspector của texture
-                    float ratioScalePixelPerUnits = 100f / 240f;
-                    // Di chuyển tiles vào đúng vị trí
-                    tempTiles.transform.Translate(i * paddingWidth * ratioScalePixelPerUnits, j * paddingWidth * ratioScalePixelPerUnits, 0);
-                    // Đổi tên tiles cho sang theo tọa độ
-                    tempTiles.name = "( " + i + ", " + j + " )";
-                    boardMatrix[i, j] = tempTiles.GetComponent<Tiles>();
-                    boardMatrix[i, j].SetPosition(i, j);
-                    // Instantie block sẵn trong bàn
-                    GameObject tempPrefabTile = Instantiate(tilesBlockPrefab, tempTiles.transform);
-                    tempPrefabTile.transform.position = new UnityEngine.Vector3(tempTiles.transform.position.x, tempTiles.transform.position.y);
-                    tempPrefabTile.SetActive(false);      
-                    //TODO : Code Test Lava Stone
-                    if(i == 5 && j == 5)
+                    for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
                     {
-                        boardMatrix[i, j].SetUpLavaStone();
-                        boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
-                    }
-                    if (i == 1 && j == 1)
-                    {
-                        boardMatrix[i, j].SetUpLavaStone();
-                        boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
-                    }
-                    if (i == 8 && j == 7)
-                    {
-                        boardMatrix[i, j].SetUpLavaStone();
-                        boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
-                    }
-                    if (i == 1 && j == 8)
-                    {
-                        boardMatrix[i, j].SetUpLavaStone();
-                        boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
+                        GameObject tempTiles;
+                        tempTiles = Instantiate(tilesPrefabTimeMode, boardPanel.transform);
+                        // Tính pixel scale vì đổi từ 100 -> 240 trong inspector của texture
+                        float ratioScalePixelPerUnits = 100f / 240f;
+                        // Di chuyển tiles vào đúng vị trí
+                        tempTiles.transform.Translate(i * paddingWidth * ratioScalePixelPerUnits * 1.25f, j * paddingWidth * ratioScalePixelPerUnits * 1.25f, 0);
+                        // Đổi tên tiles cho sang theo tọa độ
+                        tempTiles.name = "( " + i + ", " + j + " )";
+                        boardMatrix[i, j] = tempTiles.GetComponent<Tiles>();
+                        boardMatrix[i, j].SetPosition(i, j);
+                        // Instantie block sẵn trong bàn
+                        GameObject tempPrefabTile = Instantiate(tilesBlockPrefab, tempTiles.transform);
+                        tempPrefabTile.transform.position = new UnityEngine.Vector3(tempTiles.transform.position.x, tempTiles.transform.position.y);
+                        tempPrefabTile.SetActive(false);
+                        tempTiles.transform.localScale = new UnityEngine.Vector3(1.25f, 1.25f);
                     }
                 }
             }
+            else
+            {
+                LEVEL_MODE_BOARD_HEIGHT = 10;
+                LEVEL_MODE_BOARD_WIDTH = 10;
+                // Tạo các cột title cho map từ tọa độ 0,0 -> 10,10
+                totalTilesEmpty = LEVEL_MODE_BOARD_HEIGHT * LEVEL_MODE_BOARD_WIDTH;
+                boardMatrix = new Tiles[LEVEL_MODE_BOARD_WIDTH, LEVEL_MODE_BOARD_HEIGHT];
+                // Tìm độ cao và độ rộng để dịch sau mỗi block
+                float paddingWidth = tilesPrefab.GetComponent<SpriteRenderer>().size.x;
+                float paddingHeight = tilesPrefab.GetComponent<SpriteRenderer>().size.y;
+                // Generate map 
+                for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
+                {
+                    for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
+                    {
+                        GameObject tempTiles;
+                        tempTiles = Instantiate(tilesPrefab, boardPanel.transform);
+                        // Tính pixel scale vì đổi từ 100 -> 240 trong inspector của texture
+                        float ratioScalePixelPerUnits = 100f / 240f;
+                        // Di chuyển tiles vào đúng vị trí
+                        tempTiles.transform.Translate(i * paddingWidth * ratioScalePixelPerUnits, j * paddingWidth * ratioScalePixelPerUnits, 0);
+                        // Đổi tên tiles cho sang theo tọa độ
+                        tempTiles.name = "( " + i + ", " + j + " )";
+                        boardMatrix[i, j] = tempTiles.GetComponent<Tiles>();
+                        boardMatrix[i, j].SetPosition(i, j);
+                        // Instantie block sẵn trong bàn
+                        GameObject tempPrefabTile = Instantiate(tilesBlockPrefab, tempTiles.transform);
+                        tempPrefabTile.transform.position = new UnityEngine.Vector3(tempTiles.transform.position.x, tempTiles.transform.position.y);
+                        tempPrefabTile.SetActive(false);
+                        //TODO : Code Test Lava Stone
+                        if (i == 5 && j == 5)
+                        {
+                            boardMatrix[i, j].SetUpLavaStone();
+                            boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
+                        }
+                        if (i == 1 && j == 1)
+                        {
+                            boardMatrix[i, j].SetUpLavaStone();
+                            boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
+                        }
+                        if (i == 8 && j == 7)
+                        {
+                            boardMatrix[i, j].SetUpLavaStone();
+                            boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
+                        }
+                        if (i == 1 && j == 8)
+                        {
+                            boardMatrix[i, j].SetUpLavaStone();
+                            boardMatrix[i, j].SetCurrentColor(BlockColorID.LAVA_STONE);
+                        }
+                    }
+                }
+            }
+         
 
             // Tạo list các cột block để destroy
             tilesColumnToDestroy = new List<Tiles>();
@@ -193,6 +245,8 @@ namespace Puzzle.Block.GameManager
 
             if(isTimeMode)
             {
+                replaceButton.transform.GetChild(0).GetComponent<Image>().sprite = timeSkillSprite;
+                replaceButton.transform.GetChild(0).GetComponent<Image>().SetNativeSize();
                 StartCoroutine(TimeModeCouroutine());
             }
         }
@@ -294,9 +348,11 @@ namespace Puzzle.Block.GameManager
                     {
                         GameObject tempPopUp = Instantiate(scorePopUp, tilesToDestroy[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
                         tempPopUp.transform.SetAsFirstSibling();
-                        tempPopUp.GetComponentInChildren<Text>().text = "+30s";
-                      
-                        currentTimePlay += 30;
+                        tempPopUp.GetComponentInChildren<Text>().text = "+" + tilesToDestroy[i].GetCurrentTime().ToString(); 
+                        
+                        currentTimePlay += tilesToDestroy[i].GetCurrentTime();
+                        tilesToDestroy[i].StopCountDownTime();
+
                         Destroy(tilesToDestroy[i].transform.GetChild(1).gameObject);
                         tilesToDestroy[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
                         tilesToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
@@ -351,7 +407,7 @@ namespace Puzzle.Block.GameManager
             // CODE BELL / HEART
             int random = Random.Range(0, 100);         
             if (totalTetrisSpawn <= 0)
-            {
+            {   
                 if (blockIndex < 5)
                 {
                     currentBlockList.RemoveAt(0);
@@ -448,8 +504,9 @@ namespace Puzzle.Block.GameManager
                     }
                 }
                 totalTetrisSpawn++;
+                CheckTetrisAvailable();
             }
-            CheckTetrisAvailable();
+            
         }
 
         public void IncreaseScore(int _score)
@@ -649,54 +706,48 @@ namespace Puzzle.Block.GameManager
             {
                 int countAvailable = 0;
                 bool isAvailable = false;
-                if (totalTilesEmpty < currentBlockList[i].transform.childCount)
+                for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
                 {
-                    // disable cai block day vi ko du cho~
-                }
-                else
-                {
-                    for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
+                    for (int k = 0; k < LEVEL_MODE_BOARD_WIDTH; k++)
                     {
-                        for (int k = 0; k < LEVEL_MODE_BOARD_WIDTH; k++)
+                        if (boardMatrix[j, k].GetTilesID() == Game.Definition.TilesID.EMPTY)
                         {
-                            if (boardMatrix[j, k].GetTilesID() == Game.Definition.TilesID.EMPTY)
+                            for (int l = 0; l < currentBlockList[i].transform.childCount; l++)
                             {
-                                for (int l = 0; l < currentBlockList[i].transform.childCount; l++)
+                                if ((j + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionX() >= 0 &&
+                                    k + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionY() >= 0) &&
+                                    (j + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionX() < LEVEL_MODE_BOARD_HEIGHT &&
+                                    k + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionY() < LEVEL_MODE_BOARD_HEIGHT))
                                 {
-                                    if ((j + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionX() >= 0 &&
-                                        k + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionY() >= 0) &&
-                                        (j + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionX() < 10 &&
-                                        k + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionY() < 10))
+                                    if (boardMatrix[j + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionX(),
+                                    k + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionY()].GetTilesID() == Game.Definition.TilesID.EMPTY)
                                     {
-                                        if (boardMatrix[j + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionX(),
-                                        k + currentBlockList[i].transform.GetChild(l).GetComponent<BlockTetris>().GetPositionY()].GetTilesID() == Game.Definition.TilesID.EMPTY)
-                                        {
-                                            countAvailable++;
-                                        }
+                                        countAvailable++;
                                     }
-                                    else
-                                    {
-                                        break;
-                                    }
-                                }
-                                if (countAvailable == currentBlockList[i].transform.childCount)
-                                {
-                                    isAvailable = true;
-                                    countAvailable = 0;
-                                    break;
                                 }
                                 else
                                 {
-                                    countAvailable = 0;
+                                    break;
                                 }
                             }
-                        }
-                        if (isAvailable)
-                        {
-                            break;
+                            if (countAvailable == currentBlockList[i].transform.childCount)
+                            {
+                                isAvailable = true;
+                                countAvailable = 0;
+                                break;
+                            }
+                            else
+                            {
+                                countAvailable = 0;
+                            }
                         }
                     }
+                    if (isAvailable)
+                    {
+                        break;
+                    }
                 }
+                
 
                 for (int j = 0; j < currentBlockList[i].transform.childCount; j++)
                 {
@@ -718,7 +769,8 @@ namespace Puzzle.Block.GameManager
             }
             if (totalDisableBlock == currentBlockList.Count)
             {
-                print("game over");
+                isGameOver = true;
+                
             }
         }
 
@@ -732,6 +784,18 @@ namespace Puzzle.Block.GameManager
             isUsingWoodenSkill = false;
             isUsingSameColor = false;
             isReplaceBlockSkill = false;
+            isGameOver = false;           
+            if (isTimeMode && currentTimePlay <= 0)
+            {
+                print("reset game time 0");
+                currentTimePlay = TOTAL_TIME_PLAY;
+                StartCoroutine(TimeModeCouroutine());
+                GameplayUI.Instance.StartBarTimeCour();
+            }
+            else if(isTimeMode && currentTimePlay > 0)
+            {
+                currentTimePlay = TOTAL_TIME_PLAY;
+            }
 
             for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
             {
@@ -741,32 +805,39 @@ namespace Puzzle.Block.GameManager
                     {
                         if(boardMatrix[i,j].GetTilesID() == TilesID.ROCKET_ONE || boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_TWO
                             || boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_THREE || boardMatrix[i, j].GetTilesID() == TilesID.TIME)
-                        Destroy(boardMatrix[i, j].transform.GetChild(1).gameObject);
+                        {
+                            Destroy(boardMatrix[i, j].transform.GetChild(1).gameObject);    
+                            if(boardMatrix[i,j].GetTilesID() == TilesID.TIME)
+                            {
+                                boardMatrix[i, j].StopCountDownTime();
+                            }
+                        }
+                        
                     }
                     boardMatrix[i, j].transform.GetChild(0).gameObject.SetActive(false);
                     boardMatrix[i, j].SetTitlesID(Game.Definition.TilesID.EMPTY);
                     // TODO CODE TEST LAVA
-                    if (i == 5 && j == 5)
+                    if(!isTimeMode)
                     {
-                        boardMatrix[i, j].SetUpLavaStone();
-                    }
-                    if (i == 1 && j == 1)
-                    {
-                        boardMatrix[i, j].SetUpLavaStone();
-                    }
-                    if (i == 8 && j == 7)
-                    {
-                        boardMatrix[i, j].SetUpLavaStone();
-                    }
-                    if (i == 1 && j == 8)
-                    {
-                        boardMatrix[i, j].SetUpLavaStone();
-                    }
+                        if (i == 5 && j == 5)
+                        {
+                            boardMatrix[i, j].SetUpLavaStone();
+                        }
+                        if (i == 1 && j == 1)
+                        {
+                            boardMatrix[i, j].SetUpLavaStone();
+                        }
+                        if (i == 8 && j == 7)
+                        {
+                            boardMatrix[i, j].SetUpLavaStone();
+                        }
+                        if (i == 1 && j == 8)
+                        {
+                            boardMatrix[i, j].SetUpLavaStone();
+                        }
+                    }                  
                 }
             }
-       
-
-
             StartCoroutine(ResetGame());
         }
 
@@ -894,7 +965,7 @@ namespace Puzzle.Block.GameManager
                                 int currentX = hit.transform.GetComponent<Tiles>().GetPositionX();
                                 int currentY = hit.transform.GetComponent<Tiles>().GetPositionY();
                                 listToDestroy.Add(boardMatrix[currentX, currentY]);
-                                if (currentY + 1 < 10)
+                                if (currentY + 1 < LEVEL_MODE_BOARD_HEIGHT)
                                 {
                                     listToDestroy.Add(boardMatrix[currentX, currentY + 1]);
                                 }
@@ -905,7 +976,7 @@ namespace Puzzle.Block.GameManager
                                 if (currentX - 1 >= 0)
                                 {
                                     listToDestroy.Add(boardMatrix[currentX - 1, currentY]);
-                                    if (currentY + 1 < 10)
+                                    if (currentY + 1 < LEVEL_MODE_BOARD_HEIGHT)
                                     {
                                         listToDestroy.Add(boardMatrix[currentX - 1, currentY + 1]);
                                     }
@@ -914,10 +985,10 @@ namespace Puzzle.Block.GameManager
                                         listToDestroy.Add(boardMatrix[currentX - 1, currentY - 1]);
                                     }
                                 }
-                                if (currentX + 1 < 10)
+                                if (currentX + 1 < LEVEL_MODE_BOARD_HEIGHT)
                                 {
                                     listToDestroy.Add(boardMatrix[currentX + 1, currentY]);
-                                    if (currentY + 1 < 10)
+                                    if (currentY + 1 < LEVEL_MODE_BOARD_HEIGHT)
                                     {
                                         listToDestroy.Add(boardMatrix[currentX + 1, currentY + 1]);
                                     }
@@ -967,9 +1038,9 @@ namespace Puzzle.Block.GameManager
                                         {
                                             GameObject tempPopUp = Instantiate(scorePopUp, listToDestroy[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
                                             tempPopUp.transform.SetAsFirstSibling();
-                                            tempPopUp.GetComponentInChildren<Text>().text = "+30s";
-                                            currentTimePlay += 30;
-
+                                            tempPopUp.GetComponentInChildren<Text>().text ="+" + listToDestroy[i].GetCurrentTime().ToString();
+                                            currentTimePlay += listToDestroy[i].GetCurrentTime();
+                                            listToDestroy[i].StopCountDownTime();
                                             Destroy(listToDestroy[i].transform.GetChild(1).gameObject);
                                             listToDestroy[i].GetComponent<Tiles>().SetTitlesID(TilesID.EMPTY);
                                             listToDestroy[i].transform.GetChild(0).gameObject.SetActive(false);
@@ -1122,8 +1193,9 @@ namespace Puzzle.Block.GameManager
                                         {
                                             GameObject tempPopUp = Instantiate(scorePopUp, listToDestroy[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
                                             tempPopUp.transform.SetAsFirstSibling();
-                                            tempPopUp.GetComponentInChildren<Text>().text = "+30s";
-                                            currentTimePlay += 30;
+                                            tempPopUp.GetComponentInChildren<Text>().text ="+" + listToDestroy[i].GetCurrentTime().ToString();
+                                            currentTimePlay += listToDestroy[i].GetCurrentTime();
+                                            listToDestroy[i].StopCountDownTime();
                                         }
                                         Destroy(listToDestroy[i].transform.GetChild(1).gameObject);
                                     }
@@ -1154,26 +1226,38 @@ namespace Puzzle.Block.GameManager
 
         public void ReplaceBlockSkill()
         {
-            isReplaceBlockSkill = true;
-            for (int i = 0; i < currentBlockList.Count; i++)
+            if(isTimeMode)
             {
-                Destroy(currentBlockList[i].gameObject);
+                currentTimePlay += 60;
+                if(energyCount >= 5)
+                {
+                    energyCount -= 5;
+                    GameplayUI.Instance.UpdateEnergyBar();
+                }
             }
-            currentBlockList.Clear();
-            for(int i = 0; i < 3; i++)
+            else
             {
-                GameObject tempBlock = Instantiate(blockPrefab[8], blockSpawnPanel.transform);
-                // Chọn địa điểm spawn cho block
-                tempBlock.transform.position = new UnityEngine.Vector3(startSpawnPos[i].transform.position.x, startSpawnPos[i].transform.position.y, 1);
-                // Random màu cho block
-                int random = Random.Range(0, 7);
-                tempBlock.GetComponent<TetrisBlock>().SetUpTetrisBlock(listBlockColor[random], i, blockSpawnLocation[i].transform.position);
-                currentBlockList.Add(tempBlock);
-            }
-            totalTetrisSpawn = 3;
-            energyCount -= 5;
-            GameplayUI.Instance.UpdateEnergyBar();
-            isReplaceBlockSkill = false;
+                isReplaceBlockSkill = true;
+                for (int i = 0; i < currentBlockList.Count; i++)
+                {
+                    Destroy(currentBlockList[i].gameObject);
+                }
+                currentBlockList.Clear();
+                for (int i = 0; i < 3; i++)
+                {
+                    GameObject tempBlock = Instantiate(blockPrefab[8], blockSpawnPanel.transform);
+                    // Chọn địa điểm spawn cho block
+                    tempBlock.transform.position = new UnityEngine.Vector3(startSpawnPos[i].transform.position.x, startSpawnPos[i].transform.position.y, 1);
+                    // Random màu cho block
+                    int random = Random.Range(0, 7);
+                    tempBlock.GetComponent<TetrisBlock>().SetUpTetrisBlock(listBlockColor[random], i, blockSpawnLocation[i].transform.position);
+                    currentBlockList.Add(tempBlock);
+                }
+                totalTetrisSpawn = 3;
+                energyCount -= 5;
+                GameplayUI.Instance.UpdateEnergyBar();
+                isReplaceBlockSkill = false;
+            }          
         }      
 
         public int GetEnergy()
@@ -1184,7 +1268,7 @@ namespace Puzzle.Block.GameManager
         public void RandomRocketItem()
         {
             int random = Random.Range(0, 100);
-            if(random < 50)
+            if(random < 20)
             {
                 bool isSpawnRocket = false;
                 for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
@@ -1246,7 +1330,11 @@ namespace Puzzle.Block.GameManager
                             if (random == 0)
                             {
                                 Instantiate(timePrefab, boardMatrix[i, j].transform.position, UnityEngine.Quaternion.identity, boardMatrix[i, j].transform);
+                                GameObject tempCountDown = Instantiate(countDownItemPopUp, boardMatrix[i, j].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
+                                tempCountDown.transform.SetAsFirstSibling();
                                 boardMatrix[i, j].SetTitlesID(TilesID.TIME);
+                                boardMatrix[i, j].SetCountDownObject(tempCountDown);
+                                boardMatrix[i, j].SetUpTimeTile();
                                 isSpamTime = true;
                                 break;
                             }
@@ -1373,8 +1461,9 @@ namespace Puzzle.Block.GameManager
                     Destroy(rocketDestroyList[i].transform.GetChild(1).gameObject);
                     GameObject tempPopUp = Instantiate(scorePopUp, rocketDestroyList[i].transform.position, UnityEngine.Quaternion.identity, gamePlayUIPanel.transform);
                     tempPopUp.transform.SetAsFirstSibling();
-                    tempPopUp.GetComponentInChildren<Text>().text = "+30s";
-                    currentTimePlay += 30;
+                    tempPopUp.GetComponentInChildren<Text>().text = "+" + rocketDestroyList[i].GetCurrentTime().ToString();
+                    currentTimePlay += rocketDestroyList[i].GetCurrentTime();
+                    rocketDestroyList[i].StopCountDownTime();
                     rocketDestroyList[i].SetTitlesID(Game.Definition.TilesID.EMPTY);
                     rocketDestroyList[i].transform.GetChild(0).gameObject.SetActive(false);
                 }
@@ -1459,11 +1548,77 @@ namespace Puzzle.Block.GameManager
 
         IEnumerator TimeModeCouroutine()
         {
-            while(currentTimePlay > 0 )
+            while (currentTimePlay > 0)
             {
                 currentTimePlay--;
                 yield return new WaitForSeconds(1);
             }
+            Instantiate(popUpReviveNoMoveTime, gamePlayUIPanel.transform);
+            for (int i = 0; i < currentBlockList.Count; i++)
+            {
+                currentBlockList[i].GetComponent<BoxCollider2D>().enabled = false;
+                currentBlockList[i].GetComponent<TetrisBlock>().TestFunction();
+            }  
+            print("game over");
+        }
+
+        public void CheckIfLose()
+        {
+            if(isGameOver)
+            {
+                Instantiate(popUpReviveNoMove, gamePlayUIPanel.transform);
+            }
+        }
+
+        public void WatchAdsNoTime()
+        {
+            GameplayUI.Instance.UpdateScoreBoard();
+            isUsingWoodenSkill = false;
+            isUsingSameColor = false;
+            isReplaceBlockSkill = false;
+            isGameOver = false;
+            Time.timeScale = 1;
+            if (isTimeMode && currentTimePlay <= 0)
+            {
+                print("reset game time 0");
+                currentTimePlay = TOTAL_TIME_PLAY;
+                StartCoroutine(TimeModeCouroutine());
+                GameplayUI.Instance.StartBarTimeCour();
+            }
+            else if (isTimeMode && currentTimePlay > 0)
+            {
+                currentTimePlay = TOTAL_TIME_PLAY;
+            }
+
+            for (int i = 0; i < LEVEL_MODE_BOARD_WIDTH; i++)
+            {
+                for (int j = 0; j < LEVEL_MODE_BOARD_HEIGHT; j++)
+                {
+                    if (boardMatrix[i, j].GetTilesID() != TilesID.NORMAL_BLOCK && boardMatrix[i, j].GetTilesID() != TilesID.EMPTY)
+                    {
+                        if (boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_ONE || boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_TWO
+                            || boardMatrix[i, j].GetTilesID() == TilesID.ROCKET_THREE || boardMatrix[i, j].GetTilesID() == TilesID.TIME)
+                        {
+                            Destroy(boardMatrix[i, j].transform.GetChild(1).gameObject);
+                            if (boardMatrix[i, j].GetTilesID() == TilesID.TIME)
+                            {
+                                boardMatrix[i, j].StopCountDownTime();
+                            }
+                        }
+
+                    }
+                    boardMatrix[i, j].transform.GetChild(0).gameObject.SetActive(false);
+                    boardMatrix[i, j].SetTitlesID(Game.Definition.TilesID.EMPTY);                  
+                }
+            }
+            for (int i = 0; i < currentBlockList.Count; i++)
+            {
+                Destroy(currentBlockList[i].gameObject);
+            }
+
+            currentBlockList.Clear();
+            totalTetrisSpawn = 0;
+            SpawnNewRandomBlock();
         }
     }
 }

@@ -140,7 +140,16 @@ namespace Puzzle.Block.GameUIManager
 
         public void ReplayButton()
         {
-            PauseButton();
+            pausePanel.SetActive(!pausePanel.activeSelf);
+            if (pausePanel.activeSelf)
+            {
+                Time.timeScale = 0;
+                GameManager.GameManager.Instance.DisableColliderOnBlock();
+            }
+            else
+            {
+                Time.timeScale = 1;               
+            }
             GameManager.GameManager.Instance.ReplayResetGame();
         }
 
@@ -230,6 +239,11 @@ namespace Puzzle.Block.GameUIManager
                 currentTimeCountText.text = GameManager.GameManager.Instance.GetCurrentTimePlay().ToString();
                 yield return null;
             }
+        }
+
+        public void StartBarTimeCour()
+        {
+            StartCoroutine(BarTimeCouroutine());
         }
     }
 }

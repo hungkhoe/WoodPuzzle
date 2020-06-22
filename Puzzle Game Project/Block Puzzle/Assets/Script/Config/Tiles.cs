@@ -24,6 +24,9 @@ namespace Puzzle.Game.Tiles
         Sprite[] lavaStoneStatus;
         [SerializeField]
         Sprite bombMineSprite;
+
+        GameObject countDownPopUpText;
+        int timeCountDown = 30;
         void Start()
         {
             
@@ -132,6 +135,43 @@ namespace Puzzle.Game.Tiles
         public int GetHPLava()
         {
             return lavaStoneHp;
+        }
+
+        public void SetUpTimeTile()
+        {
+            timeCountDown = 31;
+            StartCoroutine(StartCountDownTime());
+        }
+
+        IEnumerator StartCountDownTime()
+        {
+            while(timeCountDown > 0)
+            {
+                timeCountDown--;
+                yield return new WaitForSeconds(1);
+            }
+            if(tilesID == TilesID.TIME)
+            {
+                SetTitlesID(TilesID.NORMAL_BLOCK);
+                Destroy(transform.GetChild(1).gameObject);
+            }
+         
+        }
+
+        public int GetCurrentTime()
+        {
+            return timeCountDown;
+        }
+
+        public void StopCountDownTime()
+        {
+            timeCountDown = 0;
+            Destroy(countDownPopUpText);
+        }
+
+        public void SetCountDownObject(GameObject _obj)
+        {
+            countDownPopUpText = _obj;
         }
 
     }
